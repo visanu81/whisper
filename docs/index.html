@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🚒 EMS Companion — 구급 동반자 (Phase 1 UI 목업)</title>
+  <title>🚒 EMS Companion — 구급 동반자</title>
+  <!-- Favicon: SVG 인라인 (별도 파일 불필요) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚒%3C/text%3E%3C/svg%3E" />
 
   <!-- Tailwind CDN (Phase 1 MVP. 정식 빌드는 Phase 2에서.) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -74,10 +76,24 @@
     html.dark .bg-white { background-color: rgb(30 41 59); }              /* slate-800 */
     html.dark .bg-slate-50 { background-color: rgb(15 23 42); }            /* slate-900 */
     html.dark .bg-slate-100 { background-color: rgb(51 65 85); }           /* slate-700 */
+    html.dark .bg-slate-200 { background-color: rgb(71 85 105); }          /* slate-600 — 비활성 토글이 도드라지게 */
+    html.dark .bg-slate-300 { background-color: rgb(71 85 105); }          /* slate-600 — disabled 버튼이 도드라지게 */
     html.dark .bg-slate-50\/50 { background-color: rgb(51 65 85 / 0.4); }
     html.dark .bg-slate-50\/30 { background-color: rgb(51 65 85 / 0.3); }
     html.dark .bg-white\/70 { background-color: rgb(15 23 42 / 0.7); }
     html.dark .bg-white\/80 { background-color: rgb(15 23 42 / 0.8); }
+
+    /* hover 색상도 다크 톤으로 (비활성 → hover 시 약간 밝게) */
+    html.dark .hover\:bg-slate-200:hover { background-color: rgb(71 85 105); }
+    html.dark .hover\:bg-slate-300:hover { background-color: rgb(100 116 139); }
+
+    /* disabled 버튼 — 다크 모드에서도 비활성임이 명확히 보이도록 */
+    html.dark button:disabled.bg-slate-300,
+    html.dark button:disabled[class*="disabled:bg-slate-300"] {
+      background-color: rgb(51 65 85);
+      color: rgb(100 116 139);
+      opacity: 0.85;
+    }
 
     html.dark .text-slate-900 { color: rgb(241 245 249); }                 /* slate-100 */
     html.dark .text-slate-800 { color: rgb(226 232 240); }                 /* slate-200 */
