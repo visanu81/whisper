@@ -29,5 +29,6 @@ dist/
 # 작업 공간
 .tmp/
 
-# Claude 작업 메모 (개인 정보 포함 가능)
+# Claude 작업 메모 / 설정 (개인 정보 포함 가능)
 CLAUDE.md
+.claude/
