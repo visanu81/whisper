@@ -123,27 +123,63 @@ let recordStream = null;
 let recordElapsedMs = 0; // 일시정지 누적 시간 (재개 시 timer 가 이어서 흐르도록)
 
 // =====================================================================
-// 데이터 로드
+// 데이터 로드 (데모 시나리오)
 // =====================================================================
+let isDemoMode = false;
+
 async function loadScenario(level) {
-  currentLevel = level;
   const res = await fetch(`samples/${level}.json`);
   if (!res.ok) {
     alert(`데이터 로드 실패: samples/${level}.json (${res.status})`);
     return;
   }
+  currentLevel = level;
   currentData = await res.json();
+  isDemoMode = true;
   renderAll(currentData);
-  updateButtons();
+  showResults();
+  showDemoBanner(level);
 }
 
-function updateButtons() {
-  const lvl1 = document.getElementById("btn-level1");
-  const lvl2 = document.getElementById("btn-level2");
-  const active = "px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition";
-  const inactive = "px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition";
-  lvl1.className = currentLevel === "level1" ? active : inactive;
-  lvl2.className = currentLevel === "level2" ? active : inactive;
+// =====================================================================
+// 화면 상태 토글 (빈 상태 / 결과 / 데모 띠)
+// =====================================================================
+function showResults() {
+  document.getElementById("results-area").classList.remove("hidden");
+  document.getElementById("empty-state").classList.add("hidden");
+}
+
+function showEmpty() {
+  document.getElementById("results-area").classList.add("hidden");
+  document.getElementById("empty-state").classList.remove("hidden");
+  hideDemoBanner();
+}
+
+function showDemoBanner(level) {
+  const banner = document.getElementById("demo-banner");
+  const label = document.getElementById("demo-banner-level");
+  label.textContent = level === "level1" ? "레벨 1 — 조용한 환경" : "레벨 2 — 다중화자";
+  banner.classList.remove("hidden");
+}
+
+function hideDemoBanner() {
+  document.getElementById("demo-banner").classList.add("hidden");
+  isDemoMode = false;
+}
+
+function closeDemoMode() {
+  hideDemoBanner();
+  currentData = null;
+  currentLevel = "";
+  showEmpty();
+}
+
+// 데모 메뉴 토글
+function toggleDemoMenu() {
+  document.getElementById("demo-menu").classList.toggle("hidden");
+}
+function hideDemoMenu() {
+  document.getElementById("demo-menu").classList.add("hidden");
 }
 
 // =====================================================================
@@ -507,9 +543,10 @@ function hideEndSessionModal() {
 }
 
 function resetScreen() {
-  // 더미 시나리오 레벨 1 로 화면 리셋 (API/사용자 설정은 유지)
+  // 출동 종료 후 빈 상태로 (API/사용자 설정은 유지)
   currentData = null;
-  loadScenario("level1");
+  currentLevel = "";
+  showEmpty();
   // 입력 영역 초기화
   document.getElementById("audio-file").value = "";
   if (typeof resetRecording === "function") resetRecording();
@@ -1033,9 +1070,9 @@ async function processAudio() {
     currentLevel = input.kind === "recording" ? "recording" : `upload_${input.filename}`;
     renderAll(currentData);
 
-    // 시나리오 토글은 비활성 상태로 표시(직관성)
-    document.getElementById("btn-level1").className = "px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition";
-    document.getElementById("btn-level2").className = "px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition";
+    // 실 데이터로 전환 → 데모 띠 / 빈 상태 안내 숨김, 결과 영역 표시
+    hideDemoBanner();
+    showResults();
 
     statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
   } catch (e) {
@@ -1049,8 +1086,29 @@ async function processAudio() {
 // =====================================================================
 // 초기화
 // =====================================================================
-document.getElementById("btn-level1").addEventListener("click", () => loadScenario("level1"));
-document.getElementById("btn-level2").addEventListener("click", () => loadScenario("level2"));
+// 데모 메뉴 (헤더 우측 "📚 데모" 버튼)
+document.getElementById("btn-demo").addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleDemoMenu();
+});
+document.querySelectorAll(".demo-option").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const level = btn.getAttribute("data-demo");
+    hideDemoMenu();
+    loadScenario(level);
+  });
+});
+document.getElementById("btn-demo-close").addEventListener("click", closeDemoMode);
+// 메뉴 바깥 클릭 시 메뉴 닫기
+document.addEventListener("click", (e) => {
+  const menu = document.getElementById("demo-menu");
+  if (!menu.classList.contains("hidden")) {
+    if (!menu.contains(e.target) && e.target.id !== "btn-demo") {
+      hideDemoMenu();
+    }
+  }
+});
+
 document.getElementById("btn-download-json").addEventListener("click", downloadJson);
 document.getElementById("btn-download-md").addEventListener("click", downloadMarkdown);
 document.getElementById("btn-process").addEventListener("click", processAudio);
@@ -1096,7 +1154,8 @@ document.getElementById("audio-file").addEventListener("change", () => {
 });
 
 checkBackendHealth();
-loadScenario("level1");
+// 첫 로드는 빈 상태로 시작 (데모 자동 로드 X — 실 사용 모드 우선)
+showEmpty();
 updateInputSummary();
 refreshUserDisplay();
 ensureUserOnFirstLoad();
