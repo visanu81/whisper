@@ -297,47 +297,47 @@
         <div id="backend-status" class="text-xs text-slate-400 shrink-0">백엔드 확인 중…</div>
       </div>
 
-      <!-- 입력 모드 두 가지: 직접 녹음 / 파일 업로드 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- 입력 모드 두 가지: 직접 녹음 / 파일 업로드 — 항상 가로 2열 (모바일도) -->
+      <div class="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
 
         <!-- A. 직접 녹음 -->
-        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-semibold text-slate-700">🎤 직접 녹음</span>
-            <span id="record-timer" class="text-sm font-mono text-slate-400">00:00</span>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4 bg-slate-50/50 min-w-0">
+          <div class="flex items-center justify-between mb-2 sm:mb-3 gap-1">
+            <span class="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">🎤 직접 녹음</span>
+            <span id="record-timer" class="text-xs sm:text-sm font-mono text-slate-400 shrink-0">00:00</span>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="btn-record" class="px-3 py-2 text-sm font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:bg-slate-300 transition">
-              <span id="btn-record-label">● 녹음 시작</span>
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <button id="btn-record" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:bg-slate-300 transition">
+              <span id="btn-record-label">● 녹음</span>
             </button>
-            <button id="btn-pause" class="px-3 py-2 text-sm font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:bg-slate-300 transition hidden">
-              <span id="btn-pause-label">⏸ 일시정지</span>
+            <button id="btn-pause" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:bg-slate-300 transition hidden">
+              <span id="btn-pause-label">⏸</span>
             </button>
-            <button id="btn-rerecord" class="px-3 py-2 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed transition hidden">
-              🔄 다시 녹음
+            <button id="btn-rerecord" class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed transition hidden">
+              🔄
             </button>
           </div>
-          <label class="flex items-center gap-2 mt-3 text-xs text-slate-600 cursor-pointer">
-            <input id="auto-vad" type="checkbox" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-            <span>처리 시 자동으로 무음 구간 제거 (STT 비용 절감)</span>
+          <label class="flex items-start gap-1.5 mt-2 sm:mt-3 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 cursor-pointer leading-tight">
+            <input id="auto-vad" type="checkbox" checked class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0" />
+            <span>무음 자동 제거<span class="hidden sm:inline"> (STT 비용 절감)</span></span>
           </label>
-          <audio id="record-preview" controls class="w-full mt-3 hidden"></audio>
-          <p id="record-hint" class="text-[11px] text-slate-400 mt-2">처음 사용 시 마이크 권한을 허용해주세요.</p>
+          <audio id="record-preview" controls class="w-full mt-2 hidden"></audio>
+          <p id="record-hint" class="text-[10px] sm:text-[11px] text-slate-400 mt-1.5 hidden sm:block">처음 사용 시 마이크 권한을 허용해주세요.</p>
         </div>
 
         <!-- B. 파일 업로드 -->
-        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-          <div class="mb-3">
-            <span class="text-sm font-semibold text-slate-700">📁 파일 업로드</span>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3 sm:p-4 bg-slate-50/50 min-w-0">
+          <div class="mb-2 sm:mb-3">
+            <span class="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">📁 파일 업로드</span>
           </div>
           <input id="audio-file" type="file" accept="audio/*,.m4a,.mp3,.wav,.webm,.mp4,.mpeg,.mpga"
-                 class="block w-full text-sm text-slate-600
-                        file:mr-3 file:py-2 file:px-4
+                 class="block w-full min-w-0 text-[11px] sm:text-sm text-slate-600 dark:text-slate-300
+                        file:mr-2 sm:file:mr-3 file:py-1 sm:file:py-2 file:px-2 sm:file:px-4
                         file:rounded-md file:border-0
-                        file:text-sm file:font-medium
+                        file:text-[11px] sm:file:text-sm file:font-medium
                         file:bg-blue-50 file:text-blue-700
                         hover:file:bg-blue-100 cursor-pointer" />
-          <p class="text-[11px] text-slate-400 mt-2">m4a, mp3, wav, webm, mp4 지원</p>
+          <p class="text-[10px] sm:text-[11px] text-slate-400 mt-1.5 sm:mt-2">m4a, mp3, wav, webm</p>
         </div>
       </div>
 
