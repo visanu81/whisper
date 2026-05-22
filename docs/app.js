@@ -1058,6 +1058,14 @@ document.getElementById("btn-record").addEventListener("click", toggleRecording)
 document.getElementById("btn-pause").addEventListener("click", togglePause);
 document.getElementById("btn-rerecord").addEventListener("click", resetRecording);
 
+// 다크 모드 토글
+//   - 초기 적용은 <head> 의 인라인 스크립트가 FOUC 방지 위해 처리
+//   - 여기서는 토글 + localStorage 저장
+document.getElementById("btn-theme").addEventListener("click", () => {
+  const isDark = document.documentElement.classList.toggle("dark");
+  localStorage.setItem("emsTheme", isDark ? "dark" : "light");
+});
+
 // 사용자 / 출동 종료
 document.getElementById("btn-user").addEventListener("click", promptUserName);
 document.getElementById("btn-end-session").addEventListener("click", showEndSessionModal);

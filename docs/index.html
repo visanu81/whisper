@@ -7,6 +7,17 @@
 
   <!-- Tailwind CDN (Phase 1 MVP. 정식 빌드는 Phase 2에서.) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // 다크 모드: class 기반. JS 로 html.classList.toggle('dark')
+    tailwind.config = { darkMode: 'class' };
+    // FOUC 방지: head 단계에서 즉시 dark 클래스 적용 (저장된 선호 또는 시스템 설정)
+    (function () {
+      const saved = localStorage.getItem('emsTheme'); // 'dark' | 'light' | null(자동)
+      const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const useDark = saved === 'dark' || (saved === null && sysDark);
+      if (useDark) document.documentElement.classList.add('dark');
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -57,12 +68,70 @@
     @media (max-width: 767px) {
       button { min-height: 40px; }
     }
+
+    /* ───────── 다크 모드 — Tailwind 유틸 클래스 일괄 매핑 ─────────
+       각 요소마다 dark: variant 다는 대신 한 곳에서 색 오버라이드. */
+    html.dark .bg-white { background-color: rgb(30 41 59); }              /* slate-800 */
+    html.dark .bg-slate-50 { background-color: rgb(15 23 42); }            /* slate-900 */
+    html.dark .bg-slate-100 { background-color: rgb(51 65 85); }           /* slate-700 */
+    html.dark .bg-slate-50\/50 { background-color: rgb(51 65 85 / 0.4); }
+    html.dark .bg-slate-50\/30 { background-color: rgb(51 65 85 / 0.3); }
+    html.dark .bg-white\/70 { background-color: rgb(15 23 42 / 0.7); }
+    html.dark .bg-white\/80 { background-color: rgb(15 23 42 / 0.8); }
+
+    html.dark .text-slate-900 { color: rgb(241 245 249); }                 /* slate-100 */
+    html.dark .text-slate-800 { color: rgb(226 232 240); }                 /* slate-200 */
+    html.dark .text-slate-700 { color: rgb(203 213 225); }                 /* slate-300 */
+    html.dark .text-slate-600 { color: rgb(148 163 184); }                 /* slate-400 */
+    html.dark .text-slate-500 { color: rgb(148 163 184); }                 /* slate-400 */
+    html.dark .text-slate-400 { color: rgb(100 116 139); }                 /* slate-500 */
+    html.dark .text-slate-300 { color: rgb(71 85 105); }                   /* slate-600 */
+
+    html.dark .border-slate-100 { border-color: rgb(51 65 85); }           /* slate-700 */
+    html.dark .border-slate-200 { border-color: rgb(51 65 85); }           /* slate-700 */
+    html.dark .border-slate-300 { border-color: rgb(71 85 105); }          /* slate-600 */
+
+    /* 타임라인 카드 색상 (어두운 톤으로 부드럽게) */
+    html.dark .bg-amber-50 { background-color: rgb(120 53 15 / 0.25); }    /* amber-900 alpha */
+    html.dark .border-amber-200 { border-color: rgb(146 64 14); }          /* amber-800 */
+    html.dark .bg-blue-50 { background-color: rgb(30 58 138 / 0.25); }
+    html.dark .border-blue-200 { border-color: rgb(30 64 175); }
+    html.dark .bg-emerald-50 { background-color: rgb(6 78 59 / 0.25); }
+    html.dark .border-emerald-200 { border-color: rgb(6 95 70); }
+    html.dark .bg-cyan-50 { background-color: rgb(22 78 99 / 0.25); }
+    html.dark .border-cyan-200 { border-color: rgb(21 94 117); }
+
+    /* 입력 필드 / 파일 선택 버튼 */
+    html.dark input[type="file"]::file-selector-button {
+      background-color: rgb(30 58 138 / 0.3);
+      color: rgb(147 197 253);
+    }
+    html.dark input[type="file"]::file-selector-button:hover {
+      background-color: rgb(30 58 138 / 0.5);
+    }
+    html.dark select { background-color: rgb(51 65 85); color: rgb(226 232 240); border-color: rgb(71 85 105); }
+    html.dark input[type="file"] { color: rgb(148 163 184); }
+
+    /* 타임라인 중앙 척추선 */
+    html.dark .timeline-spine {
+      background: linear-gradient(to bottom, rgb(51 65 85), rgb(71 85 105), rgb(51 65 85));
+    }
+
+    /* 시간 라벨 (carry-forward 추정 카드 — 흰색 배경이 어두운 톤에서 도드라지게) */
+    html.dark .timeline-time-label.bg-white {
+      background-color: rgb(15 23 42);
+      color: rgb(148 163 184);
+      border-color: rgb(71 85 105);
+    }
+
+    /* 모달 배경 */
+    html.dark #modal-end-session > div { background-color: rgb(30 41 59); }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors">
 
   <!-- 헤더 -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+  <header class="bg-white border-b border-slate-200 dark:bg-slate-800 dark:border-slate-700 sticky top-0 z-10">
     <div class="max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
       <div>
         <h1 class="text-lg md:text-xl font-bold text-slate-900">🚒 EMS Companion</h1>
@@ -75,13 +144,17 @@
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
+        <button id="btn-theme" class="px-2 py-1.5 text-sm rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="다크/라이트 모드 전환">
+          <span class="dark:hidden">🌙</span>
+          <span class="hidden dark:inline">☀️</span>
+        </button>
         <button id="btn-end-session" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700 transition" title="현재 출동 데이터 백업 후 종료">
           🚨 출동 종료
         </button>
-        <span class="text-xs text-slate-300">|</span>
-        <span class="text-xs text-slate-400">데모</span>
+        <span class="text-xs text-slate-300 dark:text-slate-600">|</span>
+        <span class="text-xs text-slate-400 dark:text-slate-500">데모</span>
         <button id="btn-level1" class="px-2 py-1 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">레벨 1</button>
-        <button id="btn-level2" class="px-2 py-1 text-xs font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition">레벨 2</button>
+        <button id="btn-level2" class="px-2 py-1 text-xs font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">레벨 2</button>
       </div>
     </div>
   </header>
@@ -118,7 +191,7 @@
   <main class="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-8 space-y-4 md:space-y-6">
 
     <!-- 실제 음성 입력 영역 -->
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-4">
         <div>
           <h2 class="text-base md:text-lg font-bold text-slate-900">🎙️ 실제 음성으로 변환</h2>
@@ -195,7 +268,7 @@
     </section>
 
     <!-- 출동 요약 카드 -->
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex items-start justify-between mb-4">
         <h2 class="text-lg font-bold text-slate-900">📋 구급일지 핵심 요약</h2>
         <span id="meta-info" class="text-xs text-slate-400"></span>
@@ -221,7 +294,7 @@
     </section>
 
     <!-- 두 트랙 통합 타임라인 (이 프로젝트의 핵심 화면) -->
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-1 gap-2">
         <h2 class="text-base md:text-lg font-bold text-slate-900">⏱️ 통합 타임라인</h2>
         <div class="flex items-center gap-2 md:gap-3 text-[11px] md:text-xs flex-wrap">
@@ -242,18 +315,18 @@
 
     <!-- SAMPLE / OPQRST -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
         <h2 class="text-lg font-bold text-slate-900 mb-4">📝 SAMPLE 추출</h2>
         <dl id="sample-list" class="space-y-2 text-sm"></dl>
       </section>
-      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
         <h2 class="text-lg font-bold text-slate-900 mb-4">🎯 OPQRST 추출</h2>
         <dl id="opqrst-list" class="space-y-2 text-sm"></dl>
       </section>
     </div>
 
     <!-- 품질 평가 -->
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <h2 class="text-lg font-bold text-slate-900 mb-4">🔍 변환 품질 평가</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <div>
