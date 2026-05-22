@@ -278,7 +278,7 @@ function renderTimeline(data) {
       labelText = group.effectiveTime;
       labelClass = "bg-slate-700 text-white";
     }
-    timeLabel.className = `timeline-time-label absolute left-1/2 -translate-x-1/2 -top-1 z-10 px-2 py-0.5 text-xs font-mono font-semibold rounded-full shadow ${labelClass}`;
+    timeLabel.className = `timeline-time-label absolute left-1/2 -translate-x-1/2 -top-1 z-10 px-2.5 py-0.5 text-xs sm:text-sm font-mono font-bold rounded-full shadow-md ${labelClass}`;
     timeLabel.textContent = labelText;
     row.appendChild(timeLabel);
 
@@ -289,7 +289,7 @@ function renderTimeline(data) {
     rightCol.className = "timeline-right pl-4 space-y-2 text-left";
 
     for (const ev of group.events) {
-      const card = makeEventCard(ev, group.isInferred);
+      const card = makeEventCard(ev, group.isInferred, data);
       if (ev.type === "patient_speech") {
         leftCol.appendChild(card);
       } else {
@@ -303,16 +303,68 @@ function renderTimeline(data) {
   }
 }
 
-function makeEventCard(ev, isInferred = false) {
+// ---------- 헬퍼: patient_speech_track 에서 같은 발화 찾아 tags 가져오기 ----------
+function findSpeechTags(ev, allData) {
+  if (!allData || ev.type !== "patient_speech") return [];
+  const speeches = allData.patient_speech_track || [];
+  // 1차: time + content 정확 일치
+  for (const sp of speeches) {
+    if (sp.time === ev.time && sp.content === ev.content) {
+      return sp.tags || [];
+    }
+  }
+  // 2차: content 정확 일치만 (time 다를 수 있음)
+  for (const sp of speeches) {
+    if (sp.content === ev.content) {
+      return sp.tags || [];
+    }
+  }
+  return [];
+}
+
+// ---------- 헬퍼: 활력징후 content 에서 수치 추출 (BP/HR/RR/SpO2/Temp/GCS/BST) ----------
+function parseVitals(content) {
+  if (!content) return null;
+  const vitals = {};
+  // 혈압 "160/95", "160에 95", "160 / 95" 등
+  let m = content.match(/혈압[^\d]*(\d{2,3})\s*(?:\/|에|on)\s*(\d{2,3})/);
+  if (m) vitals.BP = `${m[1]}/${m[2]}`;
+  // 맥박 "110" (3자리까지)
+  m = content.match(/맥박[^\d]*(\d{2,3})/);
+  if (m) vitals.HR = m[1];
+  // 호흡 "22" "호흡수 22"
+  m = content.match(/호흡(?:수)?[^\d]*(\d{1,3})/);
+  if (m) vitals.RR = m[1];
+  // 산소포화도 "94%" "94" "SpO2 94"
+  m = content.match(/(?:산소포화도|SpO2|spo2)[^\d]*(\d{2,3})/);
+  if (m) vitals.SpO2 = m[1];
+  // 체온 "36.8" "36도 8" "36도8"
+  m = content.match(/체온[^\d]*(\d{2})(?:[.도\s]+(\d))?/);
+  if (m) vitals.Temp = m[2] ? `${m[1]}.${m[2]}` : m[1];
+  // 혈당 "38", "혈당 38", "BST 38"
+  m = content.match(/(?:혈당|BST|bst)[^\d]*(\d{2,3})/);
+  if (m) vitals.BST = m[1];
+  // GCS "15", "GCS 15점"
+  m = content.match(/GCS[^\d]*(\d{1,2})/i);
+  if (m) vitals.GCS = m[1];
+  return Object.keys(vitals).length > 0 ? vitals : null;
+}
+
+function makeEventCard(ev, isInferred = false, allData = null) {
   const isPatient = ev.type === "patient_speech";
   const card = document.createElement("div");
 
-  // 색상 톤: 환자 발화 = amber, 처치/관찰 = blue 계열
   // 추정 시간(isInferred)이면 테두리를 점선(border-dashed)으로 + 살짝 흐리게.
-  // .timeline-card 마커 클래스 — 모바일 미디어쿼리가 폭을 100% 로 넓혀줌.
   const borderStyle = isInferred ? "border-dashed opacity-90" : "";
+
+  // 환자 발화 — 의식수준_변화 태그가 있으면 별 강조 + 약간 더 진한 테두리
+  let extraClass = "";
+  let tags = [];
   if (isPatient) {
-    card.className = `timeline-card inline-block max-w-full bg-amber-50 border border-amber-200 ${borderStyle} rounded-lg px-3 py-2 text-sm text-slate-800`;
+    tags = findSpeechTags(ev, allData);
+    const hasConsciousness = tags.includes("의식수준_변화");
+    extraClass = hasConsciousness ? "ring-2 ring-amber-400 dark:ring-amber-500/60" : "";
+    card.className = `timeline-card inline-block max-w-full bg-amber-50 border border-amber-200 ${borderStyle} ${extraClass} rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100`;
   } else {
     const palette = {
       vitals: "bg-blue-50 border-blue-200",
@@ -321,24 +373,53 @@ function makeEventCard(ev, isInferred = false) {
       observation: "bg-slate-50 border-slate-200",
     };
     const tone = palette[ev.type] || palette.observation;
-    card.className = `timeline-card inline-block max-w-full ${tone} border ${borderStyle} rounded-lg px-3 py-2 text-sm text-slate-800`;
+    card.className = `timeline-card inline-block max-w-full ${tone} border ${borderStyle} rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100`;
   }
 
-  const typeLabel = {
-    patient_speech: "발화",
-    vitals: "활력징후",
-    medication: "약물",
-    procedure: "술기",
-    observation: "관찰",
-  }[ev.type] || ev.type;
+  // 타입별 아이콘 + 라벨
+  const typeMeta = {
+    patient_speech: { icon: "💬", label: "발화" },
+    vitals:         { icon: "🩺", label: "활력징후" },
+    medication:     { icon: "💊", label: "약물" },
+    procedure:      { icon: "🔧", label: "술기" },
+    observation:    { icon: "👁️", label: "관찰" },
+  }[ev.type] || { icon: "•", label: ev.type };
 
   const actorBadge = ev.actor
-    ? `<span class="inline-block mr-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-white/70 text-slate-600">${escapeHtml(ev.actor)}</span>`
+    ? `<span class="inline-block mr-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-white/70 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300">${escapeHtml(ev.actor)}</span>`
     : "";
 
+  // 의식수준_변화 태그 별 표시 (헤더에)
+  const consciousnessBadge = tags.includes("의식수준_변화")
+    ? `<span class="inline-block ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-400 text-white" title="의식수준 변화 marker — 임상적으로 중요">⭐ 의식변화</span>`
+    : "";
+
+  // 활력징후 수치 그리드 (vitals 카드에서만)
+  let vitalsGrid = "";
+  if (ev.type === "vitals") {
+    const v = parseVitals(ev.content);
+    if (v) {
+      const items = [];
+      if (v.BP)   items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">BP</span> <span class="font-bold">${v.BP}</span></span>`);
+      if (v.HR)   items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">HR</span> <span class="font-bold">${v.HR}</span></span>`);
+      if (v.RR)   items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">RR</span> <span class="font-bold">${v.RR}</span></span>`);
+      if (v.SpO2) items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">SpO₂</span> <span class="font-bold">${v.SpO2}%</span></span>`);
+      if (v.Temp) items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">T</span> <span class="font-bold">${v.Temp}°</span></span>`);
+      if (v.BST)  items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">BST</span> <span class="font-bold">${v.BST}</span></span>`);
+      if (v.GCS)  items.push(`<span class="font-mono"><span class="text-[10px] text-slate-500 dark:text-slate-400">GCS</span> <span class="font-bold">${v.GCS}</span></span>`);
+      if (items.length > 0) {
+        vitalsGrid = `<div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm">${items.join("")}</div>`;
+      }
+    }
+  }
+
   card.innerHTML = `
-    <div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">${actorBadge}${escapeHtml(typeLabel)}</div>
+    <div class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+      <span class="text-sm leading-none">${typeMeta.icon}</span>
+      ${actorBadge}<span>${escapeHtml(typeMeta.label)}</span>${consciousnessBadge}
+    </div>
     <div class="leading-snug">${escapeHtml(ev.content || "")}</div>
+    ${vitalsGrid}
   `;
   return card;
 }
