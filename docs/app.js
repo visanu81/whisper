@@ -64,6 +64,52 @@ function authHeaders(extra = {}) {
   return h;
 }
 
+// =====================================================================
+// 사용자 관리 (다중 사용자 시 누가 만든 기록인지 식별)
+//   - localStorage 에 emsUserName 저장
+//   - 첫 사용 시 prompt 로 입력 (스킵 가능)
+//   - 헤더의 "👤 ..." 클릭으로 변경 가능
+//   - 다운로드 파일명·결과 _meta 에 사용자명 포함
+// =====================================================================
+function getUserName() {
+  return localStorage.getItem("emsUserName") || "";
+}
+
+function setUserName(name) {
+  // 파일명에 들어가니 위험 문자만 _ 로 치환
+  const cleaned = (name || "").trim().replace(/[\\/:*?"<>|]/g, "_");
+  if (cleaned) {
+    localStorage.setItem("emsUserName", cleaned);
+  } else {
+    localStorage.removeItem("emsUserName");
+  }
+  refreshUserDisplay();
+}
+
+function refreshUserDisplay() {
+  const el = document.getElementById("user-display");
+  if (!el) return;
+  const name = getUserName();
+  el.textContent = name || "사용자 미설정 (클릭)";
+}
+
+function promptUserName() {
+  const current = getUserName();
+  const input = window.prompt(
+    "사용자 이름을 입력하세요\n(예: 동두천소방서 김OO 소방위)\n\n다운로드 파일·구조화 결과에 표기됩니다.",
+    current
+  );
+  if (input === null) return; // 취소 — 기존값 유지
+  setUserName(input);
+}
+
+// 페이지 로드 시 한 번 — 미설정이면 잠시 후 입력 받음 (취소하면 그대로 진행)
+function ensureUserOnFirstLoad() {
+  if (!getUserName()) {
+    setTimeout(() => promptUserName(), 800);
+  }
+}
+
 let currentData = null;
 let currentLevel = "level1";
 
@@ -355,17 +401,47 @@ function escapeHtml(s) {
 // =====================================================================
 // 다운로드
 // =====================================================================
+function buildFileName(suffix) {
+  // 예: EMS_김OO_2026-05-22_14-32_report.md
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+  const userPart = getUserName() ? `_${getUserName()}` : "";
+  const sourcePart = currentLevel && currentLevel !== "level1" && currentLevel !== "level2"
+    ? "" // 실음성이면 사용자명만으로 충분
+    : `_${currentLevel}`; // 데모 시나리오면 시나리오명 포함
+  return `EMS${userPart}${sourcePart}_${stamp}_${suffix}`;
+}
+
 function downloadJson() {
-  if (!currentData) return;
-  const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: "application/json" });
-  triggerDownload(blob, `${currentLevel}_structured.json`);
+  if (!currentData) {
+    alert("다운로드할 데이터가 없습니다.");
+    return;
+  }
+  // 다운로드 직전에 사용자 정보를 _meta 에 한 번 더 박아둠 (파일만 봐도 식별 가능)
+  const dataWithUser = {
+    ...currentData,
+    _meta: {
+      ...(currentData._meta || {}),
+      recorded_by: getUserName() || null,
+      session_source: currentLevel,
+      downloaded_at: new Date().toISOString(),
+    },
+  };
+  const blob = new Blob([JSON.stringify(dataWithUser, null, 2)], { type: "application/json" });
+  triggerDownload(blob, buildFileName("structured.json"));
 }
 
 function downloadMarkdown() {
-  if (!currentData) return;
+  if (!currentData) {
+    alert("다운로드할 데이터가 없습니다.");
+    return;
+  }
   const md = buildMarkdown(currentData);
   const blob = new Blob([md], { type: "text/markdown" });
-  triggerDownload(blob, `${currentLevel}_report.md`);
+  triggerDownload(blob, buildFileName("report.md"));
 }
 
 function triggerDownload(blob, filename) {
@@ -383,11 +459,14 @@ function buildMarkdown(data) {
   const report = data.report || {};
   lines.push(`# 🚒 구급 출동 구조화 리포트`);
   lines.push("");
+  const userName = getUserName();
+  if (userName) lines.push(`- **기록자:** ${userName}`);
   lines.push(`- **시나리오:** ${currentLevel}`);
   if (data._meta) {
     lines.push(`- **모델:** ${data._meta.model || "N/A"}`);
     lines.push(`- **생성 시각:** ${data._meta.timestamp || "N/A"}`);
   }
+  lines.push(`- **다운로드 시각:** ${new Date().toLocaleString("ko-KR")}`);
   lines.push("");
 
   lines.push("## 통합 타임라인");
@@ -406,6 +485,78 @@ function buildMarkdown(data) {
   lines.push(`- **인계 사항:** ${report.handover || "—"}`);
 
   return lines.join("\n");
+}
+
+// =====================================================================
+// 출동 종료 / 데이터 정리
+// =====================================================================
+function showEndSessionModal() {
+  if (!currentData) {
+    // 화면에 표시된 출동 데이터가 없으면 종료할 게 없음
+    alert("현재 화면에 표시된 출동 데이터가 없습니다.\n(데모 시나리오는 종료 대상이 아닙니다.)");
+    return;
+  }
+  document.getElementById("modal-end-session").classList.remove("hidden");
+  document.getElementById("modal-end-session").classList.add("flex");
+}
+
+function hideEndSessionModal() {
+  const el = document.getElementById("modal-end-session");
+  el.classList.add("hidden");
+  el.classList.remove("flex");
+}
+
+function resetScreen() {
+  // 더미 시나리오 레벨 1 로 화면 리셋 (API/사용자 설정은 유지)
+  currentData = null;
+  loadScenario("level1");
+  // 입력 영역 초기화
+  document.getElementById("audio-file").value = "";
+  if (typeof resetRecording === "function") resetRecording();
+}
+
+function endSessionWithDownload() {
+  // 데이터가 실음성에서 온 게 아니면 (데모) 그냥 클리어. 실음성이면 다운로드 후 클리어.
+  const isRealSession = !["level1", "level2"].includes(currentLevel);
+  if (isRealSession && currentData) {
+    try {
+      downloadJson();
+      downloadMarkdown();
+    } catch (e) {
+      console.error(e);
+      const ok = confirm(`다운로드 중 오류 발생: ${e.message}\n그래도 화면을 초기화할까요?`);
+      if (!ok) return;
+    }
+  }
+  resetScreen();
+  hideEndSessionModal();
+}
+
+function endSessionDiscard() {
+  const ok = confirm("정말 다운로드 없이 삭제하시겠습니까?\n복구할 수 없습니다.");
+  if (!ok) return;
+  resetScreen();
+  hideEndSessionModal();
+}
+
+function clearAllLocalData() {
+  const ok = confirm(
+    "⚠️ 완전 삭제 — 다음 항목이 모두 지워집니다:\n\n" +
+    "  • 사용자 이름\n" +
+    "  • 백엔드 URL (API_BASE)\n" +
+    "  • 인증 토큰 (SHARED_SECRET)\n" +
+    "  • 현재 출동 데이터\n\n" +
+    "다음에 사용하시려면 ?api=&key= URL 로 다시 접속하셔야 합니다.\n\n계속하시겠습니까?"
+  );
+  if (!ok) return;
+  localStorage.removeItem("emsUserName");
+  localStorage.removeItem("emsApiBase");
+  localStorage.removeItem("emsApiKey");
+  resetScreen();
+  hideEndSessionModal();
+  alert("모든 로컬 데이터가 삭제되었습니다.\n페이지를 새로고침합니다.");
+  // 페이지 새로고침 (메모리상의 API_BASE/API_KEY 도 초기화)
+  setTimeout(() => window.location.reload(), 300);
 }
 
 // =====================================================================
@@ -907,6 +1058,24 @@ document.getElementById("btn-record").addEventListener("click", toggleRecording)
 document.getElementById("btn-pause").addEventListener("click", togglePause);
 document.getElementById("btn-rerecord").addEventListener("click", resetRecording);
 
+// 사용자 / 출동 종료
+document.getElementById("btn-user").addEventListener("click", promptUserName);
+document.getElementById("btn-end-session").addEventListener("click", showEndSessionModal);
+document.getElementById("btn-end-download").addEventListener("click", endSessionWithDownload);
+document.getElementById("btn-end-discard").addEventListener("click", endSessionDiscard);
+document.getElementById("btn-end-cancel").addEventListener("click", hideEndSessionModal);
+document.getElementById("btn-clear-all").addEventListener("click", clearAllLocalData);
+
+// 모달 배경(검은 영역) 클릭 시 닫기 — 단, 패널 내부 클릭은 닫지 않음
+document.getElementById("modal-end-session").addEventListener("click", (e) => {
+  if (e.target.id === "modal-end-session") hideEndSessionModal();
+});
+
+// ESC 키로 모달 닫기
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") hideEndSessionModal();
+});
+
 // 파일 선택 변경 시 입력 요약 갱신 + 녹음이 있으면 그것 우선이므로
 // 새 파일이 들어오면 녹음 결과는 지우는 게 직관적.
 document.getElementById("audio-file").addEventListener("change", () => {
@@ -921,3 +1090,5 @@ document.getElementById("audio-file").addEventListener("change", () => {
 checkBackendHealth();
 loadScenario("level1");
 updateInputSummary();
+refreshUserDisplay();
+ensureUserOnFirstLoad();
