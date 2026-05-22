@@ -1,0 +1,5 @@
+# 로컬 개발용 시크릿 예시. 이 파일을 .dev.vars 로 복사하고 값 입력.
+# .dev.vars 는 .gitignore 처리됨.
+
+OPENAI_API_KEY=sk-proj-여기에_본인의_OpenAI_API_키
+SHARED_SECRET=여기에_본인이_정한_임의의_긴_문자열

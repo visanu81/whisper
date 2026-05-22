@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚒 EMS Companion — 구급 동반자 (Phase 1 UI 목업)</title>
+
+  <!-- Tailwind CDN (Phase 1 MVP. 정식 빌드는 Phase 2에서.) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+    /* 타임라인 좌·우 트랙 사이의 중앙선 (데스크톱만) */
+    .timeline-spine {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      background: linear-gradient(to bottom, #e5e7eb, #cbd5e1, #e5e7eb);
+      transform: translateX(-50%);
+      z-index: 0;
+    }
+
+    /* 모바일: 타임라인을 단일 컬럼으로.
+       좌(환자 발화) 우(처치) 분할 대신 위→아래 흐름. 색상으로 구분 유지. */
+    @media (max-width: 767px) {
+      .timeline-spine { display: none; }
+      .timeline-row {
+        display: block !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      .timeline-left, .timeline-right {
+        padding: 0 !important;
+        text-align: left !important;
+        display: block;
+      }
+      .timeline-left { margin-bottom: 0.5rem; }
+      .timeline-time-label {
+        position: static !important;
+        transform: none !important;
+        display: inline-block;
+        margin-bottom: 0.5rem;
+      }
+      /* 카드는 폭 가득 사용 */
+      .timeline-card {
+        display: block !important;
+        max-width: 100% !important;
+      }
+    }
+
+    /* 터치 영역 확보 (iOS 권장 최소 44px) */
+    @media (max-width: 767px) {
+      button { min-height: 40px; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+  <!-- 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 class="text-lg md:text-xl font-bold text-slate-900">🚒 EMS Companion</h1>
+        <p class="text-[11px] md:text-xs text-slate-500 mt-0.5">구급 음성 자동 기록 시스템 · Phase 1</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400">시나리오</span>
+        <button id="btn-level1" class="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">레벨 1</button>
+        <button id="btn-level2" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition">레벨 2</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-8 space-y-4 md:space-y-6">
+
+    <!-- 실제 음성 입력 영역 -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-4">
+        <div>
+          <h2 class="text-base md:text-lg font-bold text-slate-900">🎙️ 실제 음성으로 변환</h2>
+          <p class="text-xs text-slate-500 mt-0.5">브라우저에서 직접 녹음하거나, 기존 녹음 파일을 업로드하세요.</p>
+        </div>
+        <div id="backend-status" class="text-xs text-slate-400 shrink-0">백엔드 확인 중…</div>
+      </div>
+
+      <!-- 입력 모드 두 가지: 직접 녹음 / 파일 업로드 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+        <!-- A. 직접 녹음 -->
+        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-semibold text-slate-700">🎤 직접 녹음</span>
+            <span id="record-timer" class="text-sm font-mono text-slate-400">00:00</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-record" class="px-3 py-2 text-sm font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 disabled:bg-slate-300 transition">
+              <span id="btn-record-label">● 녹음 시작</span>
+            </button>
+            <button id="btn-pause" class="px-3 py-2 text-sm font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 disabled:bg-slate-300 transition hidden">
+              <span id="btn-pause-label">⏸ 일시정지</span>
+            </button>
+            <button id="btn-rerecord" class="px-3 py-2 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed transition hidden">
+              🔄 다시 녹음
+            </button>
+          </div>
+          <label class="flex items-center gap-2 mt-3 text-xs text-slate-600 cursor-pointer">
+            <input id="auto-vad" type="checkbox" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+            <span>처리 시 자동으로 무음 구간 제거 (STT 비용 절감)</span>
+          </label>
+          <audio id="record-preview" controls class="w-full mt-3 hidden"></audio>
+          <p id="record-hint" class="text-[11px] text-slate-400 mt-2">처음 사용 시 마이크 권한을 허용해주세요.</p>
+        </div>
+
+        <!-- B. 파일 업로드 -->
+        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+          <div class="mb-3">
+            <span class="text-sm font-semibold text-slate-700">📁 파일 업로드</span>
+          </div>
+          <input id="audio-file" type="file" accept="audio/*,.m4a,.mp3,.wav,.webm,.mp4,.mpeg,.mpga"
+                 class="block w-full text-sm text-slate-600
+                        file:mr-3 file:py-2 file:px-4
+                        file:rounded-md file:border-0
+                        file:text-sm file:font-medium
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100 cursor-pointer" />
+          <p class="text-[11px] text-slate-400 mt-2">m4a, mp3, wav, webm, mp4 지원</p>
+        </div>
+      </div>
+
+      <!-- 처리 시작 컨트롤 -->
+      <div class="flex flex-col md:flex-row md:items-center gap-3 pt-3 border-t border-slate-100">
+        <div class="flex items-center gap-2 text-sm">
+          <label class="text-slate-500">모델:</label>
+          <select id="model-select" class="px-2 py-1.5 rounded-md border border-slate-300 text-sm bg-white">
+            <option value="gpt-4o">gpt-4o (기본)</option>
+            <option value="gpt-4o-mini">gpt-4o-mini (저비용)</option>
+          </select>
+        </div>
+        <span id="input-summary" class="text-xs text-slate-500 flex-1 md:text-right">아직 입력 없음</span>
+        <button id="btn-process" disabled class="px-4 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition">
+          처리 시작
+        </button>
+      </div>
+
+      <div id="process-status" class="mt-3 text-sm hidden">
+        <span class="inline-flex items-center gap-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+          <span id="process-status-text">처리 중…</span>
+        </span>
+      </div>
+    </section>
+
+    <!-- 출동 요약 카드 -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <div class="flex items-start justify-between mb-4">
+        <h2 class="text-lg font-bold text-slate-900">📋 구급일지 핵심 요약</h2>
+        <span id="meta-info" class="text-xs text-slate-400"></span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs text-slate-500 mb-1">주증상</p>
+          <p id="chief-complaint" class="text-sm font-medium text-slate-900">—</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">의식수준</p>
+          <p id="consciousness" class="text-sm font-medium text-slate-900">—</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">이송 병원</p>
+          <p id="hospital" class="text-sm font-medium text-slate-900">—</p>
+        </div>
+        <div class="md:col-span-2">
+          <p class="text-xs text-slate-500 mb-1">인계 사항</p>
+          <p id="handover" class="text-sm text-slate-700 leading-relaxed">—</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 두 트랙 통합 타임라인 (이 프로젝트의 핵심 화면) -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-1 gap-2">
+        <h2 class="text-base md:text-lg font-bold text-slate-900">⏱️ 통합 타임라인</h2>
+        <div class="flex items-center gap-2 md:gap-3 text-[11px] md:text-xs flex-wrap">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-400"></span>환자/보호자</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span>처치·활력징후</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded border border-dashed border-slate-400"></span>~HH:MM 이후 = 시간 추정</span>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+        <span class="hidden md:inline">시간축을 중심으로 환자 발화(왼쪽)와 구급대원 처치(오른쪽)가 흐릅니다. </span>
+        시간이 명시되지 않은 발화는 발화 순서를 그대로 유지하고 직전 시간 기준으로 "~HH:MM 이후"로 표시합니다(추측 아닌 사실 표시).
+      </p>
+
+      <div id="timeline" class="relative pl-2 pr-2">
+        <!-- JS가 채움 -->
+      </div>
+    </section>
+
+    <!-- SAMPLE / OPQRST -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">📝 SAMPLE 추출</h2>
+        <dl id="sample-list" class="space-y-2 text-sm"></dl>
+      </section>
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">🎯 OPQRST 추출</h2>
+        <dl id="opqrst-list" class="space-y-2 text-sm"></dl>
+      </section>
+    </div>
+
+    <!-- 품질 평가 -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-6">
+      <h2 class="text-lg font-bold text-slate-900 mb-4">🔍 변환 품질 평가</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs font-semibold text-rose-600 uppercase tracking-wide mb-2">환각 의심</p>
+          <ul id="qa-hallucination" class="space-y-1 text-slate-700"></ul>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">누락 의심</p>
+          <ul id="qa-omission" class="space-y-1 text-slate-700"></ul>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">의료용어 인식 오류</p>
+          <ul id="qa-terminology" class="space-y-1 text-slate-700"></ul>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">기타 메모</p>
+          <ul id="qa-notes" class="space-y-1 text-slate-700"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 다운로드 -->
+    <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <p class="text-sm text-slate-600">구조화 결과를 파일로 저장</p>
+      <div class="flex gap-2 flex-wrap">
+        <button id="btn-download-json" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition">JSON 다운로드</button>
+        <button id="btn-download-md" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 transition">Markdown 다운로드</button>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-slate-400 pt-4 pb-8">
+      Phase 1 UI 목업 · 더미 데이터(scenario_level1/2) 기반 · 백엔드 미연결
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

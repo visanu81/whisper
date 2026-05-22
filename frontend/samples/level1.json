@@ -1,0 +1,243 @@
+{
+  "integrated_timeline": [
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "가슴이 너무 아파요. 30분 전부터 갑자기."
+    },
+    {
+      "time": "14:32",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "62세 남성, 흉통 호소."
+    },
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "가슴 한가운데를 꽉 누르는 느낌이에요. 식은땀이 나고요."
+    },
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "작년부터 가끔 있었는데 이렇게 심한 건 처음이에요."
+    },
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "고혈압 약하고 당뇨약 먹어요. 아스피린도 먹고요."
+    },
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "네, 없어요."
+    },
+    {
+      "time": "14:32",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "점심에 칼국수 먹었어요. 12시쯤에요."
+    },
+    {
+      "time": "14:34",
+      "type": "vitals",
+      "actor": "구급대원",
+      "content": "혈압 160/95, 맥박 110, 호흡수 22, 산소포화도 94%, 체온 36.8도, 의식 명료, GCS 15점."
+    },
+    {
+      "time": "14:35",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "산소 비강캐뉼라 5리터 투여 시작."
+    },
+    {
+      "time": "14:36",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "정맥로 좌측 전완부 18게이지 확보. 생리식염수 연결. 심전도 모니터링 부착."
+    },
+    {
+      "time": "14:38",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "인근 권역응급의료센터로 이송 결정."
+    },
+    {
+      "time": "14:38",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "이송 시작."
+    },
+    {
+      "time": "14:42",
+      "type": "vitals",
+      "actor": "구급대원",
+      "content": "재평가. 혈압 155/90, 맥박 105, 산소포화도 96%로 상승. 통증 NRS 8점에서 5점으로 감소."
+    },
+    {
+      "time": "14:47",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "병원 도착. 의료진에게 인계."
+    }
+  ],
+  "patient_speech_track": [
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "가슴이 너무 아파요. 30분 전부터 갑자기.",
+      "tags": [
+        "주증상"
+      ]
+    },
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "가슴 한가운데를 꽉 누르는 느낌이에요. 식은땀이 나고요.",
+      "tags": [
+        "주증상"
+      ]
+    },
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "작년부터 가끔 있었는데 이렇게 심한 건 처음이에요.",
+      "tags": [
+        "기왕력"
+      ]
+    },
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "고혈압 약하고 당뇨약 먹어요. 아스피린도 먹고요.",
+      "tags": [
+        "복용약물"
+      ]
+    },
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "네, 없어요.",
+      "tags": [
+        "알레르기"
+      ]
+    },
+    {
+      "time": "14:32",
+      "speaker": "환자",
+      "content": "점심에 칼국수 먹었어요. 12시쯤에요.",
+      "tags": [
+        "기타"
+      ]
+    }
+  ],
+  "treatment_track": [
+    {
+      "time": "14:34",
+      "category": "vitals",
+      "content": "혈압 160/95, 맥박 110, 호흡수 22, 산소포화도 94%, 체온 36.8도, 의식 명료, GCS 15점.",
+      "details": {
+        "bp": "160/95",
+        "hr": 110,
+        "rr": 22,
+        "spo2": 94,
+        "temp": 36.8,
+        "ams": "A",
+        "gcs": 15,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    },
+    {
+      "time": "14:35",
+      "category": "procedure",
+      "content": "산소 비강캐뉼라 5리터 투여 시작.",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": "산소 비강캐뉼라 5리터 투여"
+      }
+    },
+    {
+      "time": "14:36",
+      "category": "procedure",
+      "content": "정맥로 좌측 전완부 18게이지 확보. 생리식염수 연결. 심전도 모니터링 부착.",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": "정맥로 확보, 생리식염수 연결, 심전도 모니터링"
+      }
+    },
+    {
+      "time": "14:42",
+      "category": "vitals",
+      "content": "재평가. 혈압 155/90, 맥박 105, 산소포화도 96%로 상승. 통증 NRS 8점에서 5점으로 감소.",
+      "details": {
+        "bp": "155/90",
+        "hr": 105,
+        "rr": null,
+        "spo2": 96,
+        "temp": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    }
+  ],
+  "sample": {
+    "S": "가슴이 너무 아파요.",
+    "A": "없음",
+    "M": "고혈압 약, 당뇨약, 아스피린",
+    "P": "협심증 의증",
+    "L": "12시, 칼국수",
+    "E": "30분 전부터 갑자기"
+  },
+  "opqrst": {
+    "O": "30분 전부터 갑자기",
+    "P": null,
+    "Q": "가슴 한가운데를 꽉 누르는 느낌",
+    "R": null,
+    "S": null,
+    "T": null
+  },
+  "report": {
+    "chief_complaint": "압박성 흉통, 발한 동반",
+    "consciousness": "명료",
+    "hospital": "OO대학교병원 응급실",
+    "handover": "62세 남성, 30분 전 발생한 압박성 흉통, 발한 동반. 활력징후 안정적, 산소 5리터 투여 중, 정맥로 확보 상태. 과거력 고혈압, 당뇨, 협심증 의증."
+  },
+  "quality_assessment": {
+    "hallucination_suspected": [],
+    "omission_suspected": [],
+    "terminology_errors": []
+  },
+  "_meta": {
+    "model": "gpt-4o",
+    "structure_elapsed_seconds": 20.41,
+    "transcript_length": 925,
+    "input_tokens": 1679,
+    "output_tokens": 2008,
+    "timestamp": "2026-05-21 20:12:06"
+  }
+}

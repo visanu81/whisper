@@ -1,0 +1,392 @@
+{
+  "integrated_timeline": [
+    {
+      "time": "15:10",
+      "type": "patient_speech",
+      "actor": "보호자",
+      "content": "엄마가 갑자기 쓰러졌어요!"
+    },
+    {
+      "time": "15:10",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "58세 여성, 의식저하 호소"
+    },
+    {
+      "time": "15:10",
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "으… 으으…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": "15:10",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "의식 혼미, AVPU에서 V 단계. 호흡 거칠고 빠름"
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "보호자",
+      "content": "30분 전까지만 해도 멀쩡했어요, 갑자기 어지럽다고 하더니…",
+      "tags": [
+        "사고경위"
+      ]
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "보호자",
+      "content": "당뇨가 있으세요. 인슐린 맞으시고요. 오늘 아침에도 맞았는데 점심을 거의 못 드셨어요.",
+      "tags": [
+        "기왕력",
+        "복용약물",
+        "마지막식사"
+      ]
+    },
+    {
+      "time": "15:11",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "혈당 측정 시작"
+    },
+    {
+      "time": "15:11",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "혈당 38, 저혈당 확진"
+    },
+    {
+      "time": "15:12",
+      "type": "vitals",
+      "actor": "구급대원",
+      "content": "혈압 100에 60, 맥박 115, 호흡수 24회, 산소포화도 92%, 체온 36도 5"
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "으… 머리가…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": "15:13",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "산소 비재호흡 마스크 10리터 적용. 정맥로 우측 전완부 20게이지 확보"
+    },
+    {
+      "time": "15:14",
+      "type": "medication",
+      "actor": "구급대원",
+      "content": "50% 포도당 50ml 정주"
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "어…어…여기가…어디예요…?",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": "15:16",
+      "type": "observation",
+      "actor": "구급대원",
+      "content": "혈당 92로 상승. 의식 명료. GCS 15점 회복"
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "어… 미나야…?",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "보호자",
+      "content": "란투스 20단위 맞으세요.",
+      "tags": [
+        "복용약물"
+      ]
+    },
+    {
+      "time": "15:18",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "OO병원 응급실로 이송 시작"
+    },
+    {
+      "time": "15:25",
+      "type": "vitals",
+      "actor": "구급대원",
+      "content": "혈압 110에 70, 맥박 95, 산소포화도 97%"
+    },
+    {
+      "time": null,
+      "type": "patient_speech",
+      "actor": "환자",
+      "content": "죄송해요… 폐 끼쳐서…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": "15:30",
+      "type": "procedure",
+      "actor": "구급대원",
+      "content": "OO병원 도착. 인계"
+    }
+  ],
+  "patient_speech_track": [
+    {
+      "time": null,
+      "speaker": "보호자",
+      "content": "엄마가 갑자기 쓰러졌어요!",
+      "tags": [
+        "사고경위"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "환자",
+      "content": "으… 으으…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "보호자",
+      "content": "30분 전까지만 해도 멀쩡했어요, 갑자기 어지럽다고 하더니…",
+      "tags": [
+        "사고경위"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "보호자",
+      "content": "당뇨가 있으세요. 인슐린 맞으시고요. 오늘 아침에도 맞았는데 점심을 거의 못 드셨어요.",
+      "tags": [
+        "기왕력",
+        "복용약물",
+        "마지막식사"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "환자",
+      "content": "으… 머리가…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "환자",
+      "content": "어…어…여기가…어디예요…?",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "환자",
+      "content": "어… 미나야…?",
+      "tags": [
+        "의식수준_변화"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "보호자",
+      "content": "란투스 20단위 맞으세요.",
+      "tags": [
+        "복용약물"
+      ]
+    },
+    {
+      "time": null,
+      "speaker": "환자",
+      "content": "죄송해요… 폐 끼쳐서…",
+      "tags": [
+        "의식수준_변화"
+      ]
+    }
+  ],
+  "treatment_track": [
+    {
+      "time": "15:11",
+      "category": "procedure",
+      "content": "혈당 측정 시작",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "bst": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": "혈당 측정"
+      }
+    },
+    {
+      "time": "15:11",
+      "category": "observation",
+      "content": "혈당 38, 저혈당 확진",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "bst": 38,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    },
+    {
+      "time": "15:12",
+      "category": "vitals",
+      "content": "혈압 100에 60, 맥박 115, 호흡수 24회, 산소포화도 92%, 체온 36도 5",
+      "details": {
+        "bp": "100/60",
+        "hr": 115,
+        "rr": 24,
+        "spo2": 92,
+        "temp": 36.5,
+        "bst": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    },
+    {
+      "time": "15:13",
+      "category": "procedure",
+      "content": "산소 비재호흡 마스크 10리터 적용. 정맥로 우측 전완부 20게이지 확보",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "bst": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": "산소 비재호흡 마스크 적용, 정맥로 확보"
+      }
+    },
+    {
+      "time": "15:14",
+      "category": "medication",
+      "content": "50% 포도당 50ml 정주",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "bst": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": "포도당",
+        "medication_dose": "50ml",
+        "procedure_name": null
+      }
+    },
+    {
+      "time": "15:16",
+      "category": "observation",
+      "content": "혈당 92로 상승. 의식 명료. GCS 15점 회복",
+      "details": {
+        "bp": null,
+        "hr": null,
+        "rr": null,
+        "spo2": null,
+        "temp": null,
+        "bst": 92,
+        "ams": "A",
+        "gcs": 15,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    },
+    {
+      "time": "15:25",
+      "category": "vitals",
+      "content": "혈압 110에 70, 맥박 95, 산소포화도 97%",
+      "details": {
+        "bp": "110/70",
+        "hr": 95,
+        "rr": null,
+        "spo2": 97,
+        "temp": null,
+        "bst": null,
+        "ams": null,
+        "gcs": null,
+        "medication_name": null,
+        "medication_dose": null,
+        "procedure_name": null
+      }
+    }
+  ],
+  "sample": {
+    "S": "의식저하",
+    "A": null,
+    "M": "인슐린",
+    "P": "당뇨",
+    "L": "점심 결식",
+    "E": "갑자기 어지럽다고 하더니 쓰러짐"
+  },
+  "opqrst": {
+    "O": null,
+    "P": null,
+    "Q": null,
+    "R": null,
+    "S": null,
+    "T": null
+  },
+  "report": {
+    "chief_complaint": "의식저하",
+    "consciousness": "의식 명료",
+    "hospital": "OO병원",
+    "handover": "58세 여성, 인슐린 의존성 당뇨 환자, 점심 결식 후 발생한 저혈당, 초기 혈당 38, 50% 포도당 50ml 투여 후 92로 회복, 의식 V에서 A로 호전. 산소 10리터 투여 중, 정맥로 확보 상태. 보호자 동행."
+  },
+  "quality_assessment": {
+    "hallucination_suspected": [],
+    "omission_suspected": [],
+    "terminology_errors": [],
+    "notes": [
+      "OPQRST 미적용: 통증 주증상이 아님"
+    ]
+  },
+  "_meta": {
+    "model": "gpt-4o",
+    "structure_elapsed_seconds": 36.18,
+    "transcript_length": 1118,
+    "input_tokens": 2212,
+    "output_tokens": 2818,
+    "timestamp": "2026-05-21 20:20:51"
+  }
+}

@@ -1,0 +1,33 @@
+# API 키 보호
+.env
+
+# 음성 파일 (개인정보 보호)
+*.m4a
+*.mp3
+*.wav
+*.mp4
+*.webm
+*.mpeg
+*.mpga
+
+# 변환 결과 (재현 가능하지만 일단 안 올림)
+*_transcript.txt
+*_result.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / Cloudflare Worker
+node_modules/
+.wrangler/
+.dev.vars
+dist/
+
+# 작업 공간
+.tmp/
+
+# Claude 작업 메모 (개인 정보 포함 가능)
+CLAUDE.md

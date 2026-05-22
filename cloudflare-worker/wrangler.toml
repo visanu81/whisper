@@ -1,0 +1,21 @@
+# EMS Companion — Cloudflare Worker 설정
+#
+# 배포:
+#   wrangler login           # 한 번만
+#   wrangler secret put OPENAI_API_KEY     # 시크릿 등록 (한 번만)
+#   wrangler secret put SHARED_SECRET      # 클라이언트 인증용 (한 번만)
+#   wrangler deploy                        # 배포
+#
+# 로컬 개발:
+#   wrangler dev             # http://localhost:8787 에 띄움
+#   .dev.vars 파일로 로컬 시크릿 관리 (gitignore 처리)
+
+name = "ems-companion-api"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+# 무료 티어 한도:
+#   - 10만 요청/일
+#   - 10ms CPU/요청 (외부 API 응답 대기는 CPU time 미계산)
+#   - 100MB 요청 본문
+# 음성 5분 = 약 30MB → 무료 한도 안전
