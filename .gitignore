@@ -32,3 +32,7 @@ dist/
 # Claude 작업 메모 / 설정 (개인 정보 포함 가능)
 CLAUDE.md
 .claude/
+
+.dev.vars*
+!.dev.vars.example
+!.env.example
