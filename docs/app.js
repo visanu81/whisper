@@ -605,6 +605,240 @@ function buildMarkdown(data) {
 }
 
 // =====================================================================
+// 출동 기록 누적 저장 (localStorage)
+//
+// 저장 구조: localStorage["emsRecords"] = JSON.stringify([record, ...])
+// 각 record = { id, saved_at, user, source, summary, data }
+//   - id: 충돌 안 나는 고유 ID
+//   - saved_at: ISO 타임스탬프
+//   - user: 사장님 또는 동료 이름 (저장 시점 사용자)
+//   - source: "recording" | "file:..." | (데모는 저장 안 함)
+//   - summary: 목록에 보일 요약 필드
+//   - data: 전체 structured JSON (불러오기용)
+// =====================================================================
+const RECORDS_KEY = "emsRecords";
+
+function getAllRecords() {
+  try {
+    const raw = localStorage.getItem(RECORDS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    console.error("기록 파싱 실패:", e);
+    return [];
+  }
+}
+
+function saveAllRecords(records) {
+  try {
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
+    refreshRecordsCount();
+    return true;
+  } catch (e) {
+    if (e.name === "QuotaExceededError") {
+      alert("저장 용량 초과 (브라우저 5MB 한도).\n[📂 기록] 에서 오래된 항목을 삭제하거나 백업 후 정리해주세요.");
+    } else {
+      alert(`저장 실패: ${e.message}`);
+    }
+    return false;
+  }
+}
+
+function saveCurrentRecord(sourceLabel) {
+  if (!currentData) return false;
+  const report = currentData.report || {};
+  const record = {
+    id: `rec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    saved_at: new Date().toISOString(),
+    user: getUserName() || "",
+    source: sourceLabel,
+    summary: {
+      chief_complaint: report.chief_complaint || "",
+      consciousness: report.consciousness || "",
+      hospital: report.hospital || "",
+      handover: report.handover || "",
+    },
+    data: currentData,
+  };
+  const list = getAllRecords();
+  list.unshift(record); // 최신이 위로
+  return saveAllRecords(list);
+}
+
+function deleteRecord(id) {
+  const list = getAllRecords().filter((r) => r.id !== id);
+  saveAllRecords(list);
+}
+
+function clearAllRecords() {
+  if (!confirm("모든 출동 기록을 삭제합니다. 복구할 수 없습니다.\n\n계속하시겠습니까?")) return;
+  saveAllRecords([]);
+  renderRecordsList();
+}
+
+function refreshRecordsCount() {
+  const el = document.getElementById("records-count");
+  if (!el) return;
+  const n = getAllRecords().length;
+  el.textContent = `(${n})`;
+}
+
+// 한국 시간 형식
+function fmtLocalDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("ko-KR", { hour12: false });
+  } catch (e) {
+    return iso;
+  }
+}
+
+// =====================================================================
+// 기록함 모달
+// =====================================================================
+function showRecordsModal() {
+  document.getElementById("modal-records").classList.remove("hidden");
+  document.getElementById("modal-records").classList.add("flex");
+  renderRecordsList();
+}
+
+function hideRecordsModal() {
+  const el = document.getElementById("modal-records");
+  el.classList.add("hidden");
+  el.classList.remove("flex");
+}
+
+function renderRecordsList() {
+  const list = getAllRecords();
+  const container = document.getElementById("records-list");
+  const summaryEl = document.getElementById("records-summary");
+
+  // 통계
+  if (list.length === 0) {
+    summaryEl.textContent = "저장된 기록 없음";
+    container.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">아직 저장된 출동 기록이 없습니다.<br/><span class="text-[11px]">실제 음성 처리 시 자동 저장됩니다.</span></p>`;
+    return;
+  }
+  const users = new Set(list.map((r) => r.user).filter((u) => u));
+  summaryEl.textContent = `총 ${list.length}건${users.size > 0 ? ` · 사용자 ${users.size}명` : ""}`;
+
+  container.innerHTML = "";
+  for (const record of list) {
+    const card = document.createElement("div");
+    card.className = "border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition";
+
+    const summary = record.summary || {};
+    const userBadge = record.user
+      ? `<span class="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">${escapeHtml(record.user)}</span>`
+      : "";
+    const sourceBadge = record.source && record.source.startsWith("recording")
+      ? `<span class="text-[10px] text-rose-600 dark:text-rose-400">🎤 직접 녹음</span>`
+      : record.source && record.source.startsWith("file")
+      ? `<span class="text-[10px] text-blue-600 dark:text-blue-400">📁 파일</span>`
+      : "";
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400 mb-1">
+            <span class="font-mono">${escapeHtml(fmtLocalDate(record.saved_at))}</span>
+            ${userBadge}
+            ${sourceBadge}
+          </div>
+          <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+            ${escapeHtml(summary.chief_complaint || "(주증상 없음)")}
+          </div>
+          ${summary.consciousness ? `<div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">의식: ${escapeHtml(summary.consciousness)}${summary.hospital ? " · 이송: " + escapeHtml(summary.hospital) : ""}</div>` : ""}
+        </div>
+        <div class="flex gap-1 shrink-0">
+          <button data-load-id="${escapeHtml(record.id)}" class="rec-load px-2 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition">불러오기</button>
+          <button data-del-id="${escapeHtml(record.id)}" class="rec-del px-2 py-1 text-xs rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="이 기록만 삭제">🗑️</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+
+  // 이벤트 위임
+  container.querySelectorAll(".rec-load").forEach((btn) => {
+    btn.addEventListener("click", () => loadRecordById(btn.getAttribute("data-load-id")));
+  });
+  container.querySelectorAll(".rec-del").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (confirm("이 기록을 삭제하시겠습니까?")) {
+        deleteRecord(btn.getAttribute("data-del-id"));
+        renderRecordsList();
+      }
+    });
+  });
+}
+
+function loadRecordById(id) {
+  const record = getAllRecords().find((r) => r.id === id);
+  if (!record) {
+    alert("기록을 찾을 수 없습니다.");
+    return;
+  }
+  currentData = record.data;
+  currentLevel = `loaded:${record.id}`;
+  isDemoMode = false;
+  renderAll(currentData);
+  hideDemoBanner();
+  showResults();
+  hideRecordsModal();
+}
+
+// 백업 내보내기 — 전체 기록을 JSON 파일로
+function exportAllRecords() {
+  const list = getAllRecords();
+  if (list.length === 0) {
+    alert("내보낼 기록이 없습니다.");
+    return;
+  }
+  const payload = {
+    schema: "ems-companion/records-backup",
+    version: 1,
+    exported_at: new Date().toISOString(),
+    exported_by: getUserName() || "",
+    count: list.length,
+    records: list,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+  triggerDownload(blob, `EMS_backup_${stamp}_${list.length}건.json`);
+}
+
+// 백업 복원 — JSON 파일에서 기록을 가져와 기존 기록에 추가 (중복 ID 는 스킵)
+async function importRecords(file) {
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    const incoming = Array.isArray(payload) ? payload : payload.records;
+    if (!Array.isArray(incoming)) throw new Error("유효한 백업 파일이 아닙니다.");
+
+    const existing = getAllRecords();
+    const existingIds = new Set(existing.map((r) => r.id));
+    let added = 0;
+    let skipped = 0;
+    for (const rec of incoming) {
+      if (!rec.id || !rec.data) { skipped++; continue; }
+      if (existingIds.has(rec.id)) { skipped++; continue; }
+      existing.push(rec);
+      added++;
+    }
+    // saved_at 내림차순 정렬
+    existing.sort((a, b) => (b.saved_at || "").localeCompare(a.saved_at || ""));
+    saveAllRecords(existing);
+    renderRecordsList();
+    alert(`복원 완료\n  - 추가: ${added}건\n  - 중복/무효 스킵: ${skipped}건`);
+  } catch (e) {
+    alert(`복원 실패: ${e.message}`);
+  }
+}
+
+// =====================================================================
 // 공유 / 복사 (카톡·문자·메일 등)
 // =====================================================================
 function buildShareText(data) {
@@ -1257,7 +1491,12 @@ async function processAudio() {
     hideDemoBanner();
     showResults();
 
-    statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
+    // 자동 저장 (출동 기록함에 누적)
+    const sourceLabel = input.kind === "recording" ? "recording" : `file:${input.filename}`;
+    const saved = saveCurrentRecord(sourceLabel);
+    const savedNote = saved ? " 기록함에 자동 저장됨." : "";
+
+    statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo}${savedNote} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
   } catch (e) {
     console.error(e);
     statusText.innerHTML = `<span class="text-rose-600">✗ 실패: ${escapeHtml(e.message || String(e))}</span>`;
@@ -1296,6 +1535,24 @@ document.getElementById("btn-download-json").addEventListener("click", downloadJ
 document.getElementById("btn-download-md").addEventListener("click", downloadMarkdown);
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
+
+// 기록함
+document.getElementById("btn-records").addEventListener("click", showRecordsModal);
+document.getElementById("btn-records-close").addEventListener("click", hideRecordsModal);
+document.getElementById("btn-records-export").addEventListener("click", exportAllRecords);
+document.getElementById("btn-records-clear").addEventListener("click", clearAllRecords);
+document.getElementById("btn-records-import").addEventListener("click", () => {
+  document.getElementById("records-import-input").click();
+});
+document.getElementById("records-import-input").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) importRecords(f);
+  e.target.value = ""; // 같은 파일 재선택 가능
+});
+// 기록함 모달 배경 클릭 → 닫기
+document.getElementById("modal-records").addEventListener("click", (e) => {
+  if (e.target.id === "modal-records") hideRecordsModal();
+});
 document.getElementById("btn-process").addEventListener("click", processAudio);
 document.getElementById("btn-record").addEventListener("click", toggleRecording);
 document.getElementById("btn-pause").addEventListener("click", togglePause);
@@ -1322,9 +1579,12 @@ document.getElementById("modal-end-session").addEventListener("click", (e) => {
   if (e.target.id === "modal-end-session") hideEndSessionModal();
 });
 
-// ESC 키로 모달 닫기
+// ESC 키로 모달 닫기 (열려 있는 모달 모두)
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") hideEndSessionModal();
+  if (e.key === "Escape") {
+    hideEndSessionModal();
+    hideRecordsModal();
+  }
 });
 
 // 파일 선택 변경 시 입력 요약 갱신 + 녹음이 있으면 그것 우선이므로
@@ -1343,4 +1603,5 @@ checkBackendHealth();
 showEmpty();
 updateInputSummary();
 refreshUserDisplay();
+refreshRecordsCount();
 ensureUserOnFirstLoad();

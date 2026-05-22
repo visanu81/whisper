@@ -180,6 +180,9 @@
           <span class="dark:hidden">🌙</span>
           <span class="hidden dark:inline">☀️</span>
         </button>
+        <button id="btn-records" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="저장된 출동 기록 보기">
+          📂 기록 <span id="records-count" class="font-bold">(0)</span>
+        </button>
         <button id="btn-end-session" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700 transition" title="현재 출동 데이터 백업 후 종료">
           🚨 출동 종료
         </button>
@@ -228,6 +231,42 @@
         <button id="btn-clear-all" class="text-[11px] text-rose-500 hover:text-rose-700 hover:underline">
           ⚙️ 완전 삭제: 사용자 정보·API 설정·모든 캐시 (폰 분실/넘김 시)
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 기록함 모달 -->
+  <div id="modal-records" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+      <!-- 헤더 -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">📂 출동 기록함</h3>
+        <button id="btn-records-close" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xl">✕</button>
+      </div>
+
+      <!-- 액션 바 -->
+      <div class="px-6 py-3 border-b border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-2 text-xs">
+        <span id="records-summary" class="text-slate-500 dark:text-slate-400 flex-1">불러오는 중…</span>
+        <button id="btn-records-export" class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="전체 기록을 JSON 파일로 백업">
+          💾 백업 내보내기
+        </button>
+        <button id="btn-records-import" class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="백업 JSON 파일에서 복원 (기존 기록에 추가)">
+          📥 백업 복원
+        </button>
+        <input id="records-import-input" type="file" accept=".json,application/json" class="hidden" />
+        <button id="btn-records-clear" class="px-2 py-1 rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="모든 기록 삭제 (복구 불가)">
+          🗑️ 전체 삭제
+        </button>
+      </div>
+
+      <!-- 목록 -->
+      <div id="records-list" class="overflow-y-auto flex-1 px-6 py-3 space-y-2">
+        <p class="text-center text-slate-400 py-8 text-sm">저장된 출동 기록이 없습니다.</p>
+      </div>
+
+      <!-- 안내 -->
+      <div class="px-6 py-3 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-400 dark:text-slate-500">
+        💡 실제 음성 처리 시 자동 저장됩니다. 데모는 저장 안 함. 기록은 이 폰의 브라우저에만 있으니, 폰 바꾸실 때 백업하세요.
       </div>
     </div>
   </div>
