@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- maskable safe area: 중앙 80% 영역 안에 핵심 콘텐츠.
+       Android adaptive icon 이 외곽을 잘라낼 수 있어서. -->
+  <rect width="512" height="512" rx="96" fill="#dc2626"/>
+  <text x="50%" y="56%" font-size="300" text-anchor="middle" dominant-baseline="middle"
+        font-family="'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif">🚒</text>
+</svg>

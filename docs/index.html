@@ -2,10 +2,26 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>🚒 EMS Companion — 구급 동반자</title>
-  <!-- Favicon: SVG 인라인 (별도 파일 불필요) -->
+
+  <!-- Favicon (브라우저 탭): SVG 인라인 (별도 파일 불필요) -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚒%3C/text%3E%3C/svg%3E" />
+
+  <!-- PWA: manifest + 앱 아이콘 + 테마 색 -->
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
+  <!-- iOS Safari: 홈 화면에서 앱처럼 실행 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="EMS Companion" />
+
+  <!-- Android: 색상/표시 (manifest 가 우선이지만 명시) -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="EMS Companion" />
 
   <!-- Tailwind CDN (Phase 1 MVP. 정식 빌드는 Phase 2에서.) -->
   <script src="https://cdn.tailwindcss.com"></script>

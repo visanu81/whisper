@@ -1,0 +1,22 @@
+{
+  "name": "EMS Companion — 구급 동반자",
+  "short_name": "EMS",
+  "description": "구급 출동 음성 자동 기록 시스템",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["medical", "productivity", "utilities"]
+}
