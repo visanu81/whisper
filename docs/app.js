@@ -605,6 +605,108 @@ function buildMarkdown(data) {
 }
 
 // =====================================================================
+// 공유 / 복사 (카톡·문자·메일 등)
+// =====================================================================
+function buildShareText(data) {
+  // 짧은 요약 — 본문에 들어감. 너무 길면 카톡/문자에서 잘림.
+  const report = data.report || {};
+  const meta = data._meta || {};
+  const userName = getUserName();
+
+  const lines = [];
+  lines.push(`🚒 EMS 출동 요약`);
+  if (userName) lines.push(`기록자: ${userName}`);
+  lines.push("");
+  lines.push(`▣ 주증상: ${report.chief_complaint || "—"}`);
+  lines.push(`▣ 의식수준: ${report.consciousness || "—"}`);
+  lines.push(`▣ 이송 병원: ${report.hospital || "—"}`);
+  lines.push("");
+  if (report.handover) {
+    lines.push("▣ 인계 사항:");
+    lines.push(report.handover);
+    lines.push("");
+  }
+
+  // 핵심 타임라인 — 시간 명시된 항목만 (너무 길지 않게)
+  const events = (data.integrated_timeline || []).filter(e => e.time);
+  if (events.length > 0) {
+    lines.push("▣ 타임라인:");
+    for (const ev of events.slice(0, 20)) {
+      const actor = ev.actor ? `[${ev.actor}] ` : "";
+      lines.push(`  ${ev.time} · ${actor}${ev.content || ""}`);
+    }
+    if (events.length > 20) lines.push(`  … 외 ${events.length - 20}건`);
+  }
+
+  lines.push("");
+  lines.push(`(생성 ${meta.timestamp || new Date().toISOString().slice(0, 16).replace("T", " ")})`);
+  return lines.join("\n");
+}
+
+async function shareReport() {
+  if (!currentData) {
+    alert("공유할 데이터가 없습니다.");
+    return;
+  }
+  const text = buildShareText(currentData);
+  const cc = (currentData && currentData.report && currentData.report.chief_complaint) || "출동 기록";
+  const title = `🚒 EMS 출동 — ${cc}`;
+
+  // Web Share API + 파일 첨부 시도
+  try {
+    if (navigator.canShare && navigator.share) {
+      const md = buildMarkdown(currentData);
+      const file = new File([md], buildFileName("report.md"), { type: "text/markdown" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ title, text, files: [file] });
+        return;
+      }
+      // 파일은 안 되지만 텍스트는 가능
+      await navigator.share({ title, text });
+      return;
+    }
+  } catch (e) {
+    if (e.name === "AbortError") return; // 사용자가 취소한 거면 조용히
+    console.error(e);
+  }
+
+  // Web Share API 미지원 → 클립보드 복사로 폴백
+  await copyShareText(text, "공유 기능을 지원하지 않는 환경입니다.\n요약이 클립보드에 복사되었습니다.");
+}
+
+async function copyReport() {
+  if (!currentData) {
+    alert("복사할 데이터가 없습니다.");
+    return;
+  }
+  const text = buildShareText(currentData);
+  await copyShareText(text, "출동 요약이 클립보드에 복사되었습니다.\n카톡·메일·노트 등에 붙여넣으세요.");
+}
+
+async function copyShareText(text, successMsg) {
+  try {
+    await navigator.clipboard.writeText(text);
+    alert(successMsg);
+  } catch (e) {
+    // clipboard API 실패 (HTTP 환경 또는 권한 문제) → execCommand 폴백
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      alert(successMsg);
+    } catch (e2) {
+      alert(`복사 실패: ${e2.message}\n수동으로 화면의 텍스트를 선택해 복사해주세요.`);
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
+}
+
+// =====================================================================
 // 출동 종료 / 데이터 정리
 // =====================================================================
 function showEndSessionModal() {
@@ -1192,6 +1294,8 @@ document.addEventListener("click", (e) => {
 
 document.getElementById("btn-download-json").addEventListener("click", downloadJson);
 document.getElementById("btn-download-md").addEventListener("click", downloadMarkdown);
+document.getElementById("btn-share").addEventListener("click", shareReport);
+document.getElementById("btn-copy").addEventListener("click", copyReport);
 document.getElementById("btn-process").addEventListener("click", processAudio);
 document.getElementById("btn-record").addEventListener("click", toggleRecording);
 document.getElementById("btn-pause").addEventListener("click", togglePause);

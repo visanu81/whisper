@@ -417,12 +417,18 @@
       </div>
     </section>
 
-    <!-- 다운로드 -->
+    <!-- 다운로드 / 공유 -->
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <p class="text-sm text-slate-600">구조화 결과를 파일로 저장</p>
+      <p class="text-sm text-slate-600 dark:text-slate-300">구조화 결과 저장·공유</p>
       <div class="flex gap-2 flex-wrap">
-        <button id="btn-download-json" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">JSON 다운로드</button>
-        <button id="btn-download-md" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">Markdown 다운로드</button>
+        <button id="btn-share" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition" title="카톡·문자·메일 등으로 공유">
+          🔗 공유
+        </button>
+        <button id="btn-copy" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="요약을 클립보드에 복사">
+          📋 복사
+        </button>
+        <button id="btn-download-json" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">JSON</button>
+        <button id="btn-download-md" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">Markdown</button>
       </div>
     </section>
 
