@@ -141,28 +141,58 @@ const STRUCTURING_SYSTEM_PROMPT = `당신은 119 구급 출동 음성 변환 텍
 
 const app = new Hono();
 
-// CORS — 모든 origin 허용 (Phase 1). 배포 시 GitHub Pages 도메인으로 좁히길 권장.
-app.use('*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'X-API-Key'],
-}));
+// 허용되는 frontend origin 목록 (환경변수 ALLOWED_ORIGINS 로 override 가능, 쉼표 구분)
+// 예: "https://whisper.visanu81.workers.dev,https://ems.example.com"
+const DEFAULT_ALLOWED_ORIGINS = 'https://whisper.visanu81.workers.dev';
 
-// 공통 인증 미들웨어
-// SHARED_SECRET 이 설정돼 있으면 X-API-Key 헤더가 일치해야 함.
-// 미설정 시 인증 생략 (개발용).
+function getAllowedOrigins(env) {
+  const raw = env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS;
+  return raw.split(',').map((s) => s.trim()).filter((s) => s);
+}
+
+// CORS — Origin 화이트리스트 기반.
+// 등록된 origin 만 Access-Control-Allow-Origin 응답을 받음.
+app.use('*', (c, next) => {
+  const allowed = getAllowedOrigins(c.env);
+  return cors({
+    origin: (origin) => {
+      if (!origin) return null; // origin 헤더 없으면 (curl 등) 허용 안 함
+      return allowed.includes(origin) ? origin : null;
+    },
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'X-API-Key'],
+  })(c, next);
+});
+
+// 공통 인증 미들웨어 — Origin 헤더 기반 (Phase 1 시범 단계)
+//   - /health 는 누구나 허용 (모니터링용)
+//   - OPTIONS (CORS preflight) 는 CORS 미들웨어가 처리
+//   - 그 외: Origin (또는 Referer) 이 allowed 목록에 있어야 함
+//   - 호환성: SHARED_SECRET 이 설정돼 있으면 X-API-Key 일치 시에도 허용 (기존 클라이언트 보호)
 async function authMiddleware(c, next) {
-  // /health 는 인증 없이 허용
   if (c.req.path === '/health') return next();
+  if (c.req.method === 'OPTIONS') return next();
 
+  const allowed = getAllowedOrigins(c.env);
+  const origin = c.req.header('Origin') || '';
+  const referer = c.req.header('Referer') || '';
+
+  const originAllowed = allowed.includes(origin) ||
+    allowed.some((a) => referer.startsWith(a));
+
+  if (originAllowed) return next();
+
+  // 폴백: 기존 SHARED_SECRET 클라이언트 호환 (있는 경우만)
   const expected = c.env.SHARED_SECRET;
-  if (!expected) return next(); // 시크릿 미설정 → 인증 비활성
-
-  const provided = c.req.header('X-API-Key');
-  if (provided !== expected) {
-    return c.json({ error: 'Unauthorized: invalid or missing X-API-Key' }, 401);
+  if (expected) {
+    const provided = c.req.header('X-API-Key');
+    if (provided === expected) return next();
   }
-  return next();
+
+  return c.json({
+    error: 'Forbidden',
+    hint: 'This API is only callable from authorized frontends. Set ALLOWED_ORIGINS env var to whitelist your domain.',
+  }, 403);
 }
 
 app.use('*', authMiddleware);
@@ -174,7 +204,9 @@ app.get('/health', (c) => {
   return c.json({
     status: 'ok',
     openai_key_configured: !!c.env.OPENAI_API_KEY,
-    auth_required: !!c.env.SHARED_SECRET,
+    auth_method: 'origin', // Phase 1: Origin 화이트리스트
+    allowed_origins: getAllowedOrigins(c.env),
+    legacy_secret_fallback: !!c.env.SHARED_SECRET,
     service: 'EMS Companion API (Cloudflare Worker)',
   });
 });

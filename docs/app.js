@@ -8,20 +8,20 @@
 //   - API_BASE 만 바꾸면 원격 배포 백엔드로 전환 가능
 
 // =====================================================================
-// 백엔드 연결 설정 (API_BASE + API_KEY)
+// 백엔드 연결 설정 (API_BASE)
 //
-// 우선순위:
-//   1) URL 파라미터 ?api=<URL>&key=<TOKEN> 으로 받으면 localStorage 에 저장하고
-//      URL 에서는 즉시 제거 (브라우저 히스토리 / 서버 로그에 secret 남지 않게)
-//   2) localStorage 에 값이 있으면 그것 사용
-//   3) 없으면 호스트명 기반 기본값:
-//        - localhost / 127.0.0.1 → http://127.0.0.1:8001 (Python FastAPI 개발)
-//        - 그 외 (GitHub Pages 등) → 명시적 ?api= 로 받아야 함, 아니면 안내
+// 인증 방식: Origin 화이트리스트 (Phase 1 시범).
+//   - 워커가 호출한 origin(=현재 페이지 호스트)을 보고 허용/거부.
+//   - 동료들은 https://whisper.visanu81.workers.dev/ 만 알면 끝 — 별도 토큰 X.
 //
-// 사장님 첫 사용 시 한 번만 다음 URL 로 접속:
-//   https://<github-pages>/?api=https://ems-companion-api.xxx.workers.dev&key=<SHARED_SECRET>
-// 그 후로는 그냥 https://<github-pages> 만 알면 됨.
+// API_BASE 우선순위:
+//   1) URL 파라미터 ?api=<URL> 으로 받으면 localStorage 에 저장 (개발/디버깅용)
+//   2) localStorage 에 저장된 값
+//   3) 로컬 개발 (localhost/127.0.0.1) → http://127.0.0.1:8001
+//   4) 그 외 (배포) → DEFAULT_API_BASE
 // =====================================================================
+const DEFAULT_API_BASE = "https://ems-companion-api.visanu81.workers.dev";
+
 (function captureConfigFromURL() {
   const params = new URLSearchParams(window.location.search);
   let changed = false;
@@ -30,6 +30,7 @@
     params.delete("api");
     changed = true;
   }
+  // 기존 ?key= 파라미터가 와도 호환 차원에서 저장만 함 (Origin 인증으로 전환되어 사용 안 함)
   if (params.has("key")) {
     localStorage.setItem("emsApiKey", params.get("key"));
     params.delete("key");
@@ -50,12 +51,13 @@ const API_BASE = (() => {
   if (stored) return stored.replace(/\/$/, "");
   const host = window.location.hostname;
   if (host === "localhost" || host === "127.0.0.1") {
-    return "http://127.0.0.1:8001";
+    return "http://127.0.0.1:8001"; // 로컬 Python FastAPI 개발
   }
-  // 기본값을 찍어두되, checkBackendHealth 에서 안내 메시지 표시됨.
-  return `${window.location.protocol}//${host}:8001`;
+  return DEFAULT_API_BASE;
 })();
 
+// 옛 X-API-Key 헤더 호환 (워커가 SHARED_SECRET 폴백 유지 — 점진적 전환용).
+// 신규 사용자에게는 빈 값이라 헤더 안 보냄 → Origin 인증으로 통과.
 const API_KEY = localStorage.getItem("emsApiKey") || "";
 
 function authHeaders(extra = {}) {
@@ -1026,13 +1028,21 @@ async function checkBackendHealth() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const shortBase = API_BASE.replace(/^https?:\/\//, "");
+
     if (!data.openai_key_configured) {
       el.innerHTML = `<span class="text-amber-600">● 백엔드 OK · OPENAI_API_KEY 없음</span>`;
-    } else if (data.auth_required && !API_KEY) {
-      el.innerHTML = `<span class="text-amber-600">● 백엔드 OK · 인증 토큰 필요 (?key= 로 한 번 접속)</span>`;
-    } else {
-      el.innerHTML = `<span class="text-emerald-600" title="${shortBase}">● 연결됨</span>`;
+      return;
     }
+    // Origin 인증: 현재 페이지 호스트가 워커 화이트리스트에 있어야 함
+    if (data.auth_method === "origin" && Array.isArray(data.allowed_origins)) {
+      const myOrigin = `${window.location.protocol}//${window.location.host}`;
+      const isAllowed = data.allowed_origins.includes(myOrigin);
+      if (!isAllowed && !API_KEY) {
+        el.innerHTML = `<span class="text-amber-600" title="${myOrigin} not in allowed_origins">● 백엔드 OK · 이 도메인은 화이트리스트에 없음</span>`;
+        return;
+      }
+    }
+    el.innerHTML = `<span class="text-emerald-600" title="${shortBase}">● 연결됨</span>`;
   } catch (e) {
     el.innerHTML = `<span class="text-rose-500" title="${API_BASE}">● 응답 없음</span>`;
   }
