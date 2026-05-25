@@ -14,9 +14,14 @@ name = "ems-api"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
-# 이 워커는 순수 API 서버 (정적 자산 없음).
-# [assets] 섹션을 명시하면 wrangler 가 워커 모드를 "Static Site + Worker" 로
-# 전환해서 라우팅이 깨짐. 따라서 [assets] 섹션 자체를 두지 않음.
+# 정적 자산: cloudflare-worker/public/ 빈 폴더로 명시.
+# wrangler v4 가 미설정 시 sibling 폴더(../docs)를 자동 발견하므로,
+# 명시적으로 빈 폴더를 가리켜 docs/ 자동 발견을 차단.
+# binding="ASSETS" 로 정적 자산 자동 라우팅을 OFF →
+# 모든 요청이 worker script (Hono) 로 옴.
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 # 무료 티어 한도:
 #   - 10만 요청/일
