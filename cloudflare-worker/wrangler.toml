@@ -14,13 +14,9 @@ name = "ems-companion-api"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
-# 정적 자산: binding 모드.
-# binding 을 명시하면 정적 자산 자동 라우팅이 비활성화되고,
-# 모든 요청이 worker script (Hono) 로 옴 — API 워커에 정확히 맞는 모드.
-# (이 워커는 정적 자산을 안 쓰지만, wrangler 가 docs/ 자동 발견하는 걸 막기 위해 빈 폴더 명시.)
-[assets]
-directory = "./public"
-binding = "ASSETS"
+# 이 워커는 순수 API 서버 (정적 자산 없음).
+# [assets] 섹션을 명시하면 wrangler 가 워커 모드를 "Static Site + Worker" 로
+# 전환해서 라우팅이 깨짐. 따라서 [assets] 섹션 자체를 두지 않음.
 
 # 무료 티어 한도:
 #   - 10만 요청/일
