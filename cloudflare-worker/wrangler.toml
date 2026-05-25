@@ -14,12 +14,13 @@ name = "ems-companion-api"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
-# 정적 자산: 빈 폴더 명시 (wrangler 가 docs/ 같은 외부 폴더를 자동 발견하지 않게).
-# not_found_handling = "none" → 정적 자산에서 못 찾으면 worker script (Hono) 로 fallback.
-# 이 워커는 순수 API 서버이므로 모든 요청은 결국 Hono 가 처리해야 함.
+# 정적 자산: binding 모드.
+# binding 을 명시하면 정적 자산 자동 라우팅이 비활성화되고,
+# 모든 요청이 worker script (Hono) 로 옴 — API 워커에 정확히 맞는 모드.
+# (이 워커는 정적 자산을 안 쓰지만, wrangler 가 docs/ 자동 발견하는 걸 막기 위해 빈 폴더 명시.)
 [assets]
 directory = "./public"
-not_found_handling = "none"
+binding = "ASSETS"
 
 # 무료 티어 한도:
 #   - 10만 요청/일
