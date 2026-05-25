@@ -20,7 +20,7 @@
 //   3) 로컬 개발 (localhost/127.0.0.1) → http://127.0.0.1:8001
 //   4) 그 외 (배포) → DEFAULT_API_BASE
 // =====================================================================
-const DEFAULT_API_BASE = "https://ems-companion-api.visanu81.workers.dev";
+const DEFAULT_API_BASE = "https://ems-api.visanu81.workers.dev";
 
 (function captureConfigFromURL() {
   const params = new URLSearchParams(window.location.search);

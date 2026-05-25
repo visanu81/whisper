@@ -143,7 +143,7 @@ const app = new Hono();
 
 // 허용되는 frontend origin 목록 (환경변수 ALLOWED_ORIGINS 로 override 가능, 쉼표 구분)
 // 예: "https://whisper.visanu81.workers.dev,https://ems.example.com"
-const DEFAULT_ALLOWED_ORIGINS = 'https://whisper.visanu81.workers.dev';
+const DEFAULT_ALLOWED_ORIGINS = 'https://whisper.visanu81.workers.dev,http://localhost:8000,http://127.0.0.1:8000';
 
 function getAllowedOrigins(env) {
   const raw = env.ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS;

@@ -10,7 +10,7 @@
 #   wrangler dev             # http://localhost:8787 에 띄움
 #   .dev.vars 파일로 로컬 시크릿 관리 (gitignore 처리)
 
-name = "ems-companion-api"
+name = "ems-api"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
 
