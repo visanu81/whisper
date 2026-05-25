@@ -919,6 +919,280 @@ async function copyReport() {
   await copyShareText(text, "출동 요약이 클립보드에 복사되었습니다.\n카톡·메일·노트 등에 붙여넣으세요.");
 }
 
+// =====================================================================
+// 119 구급활동일지 양식 (별지 제5호서식) — 자동 추출 텍스트
+//   - 음성에서 추출 가능한 항목 자동 채움
+//   - 환자 인적사항·시각·서명 등은 직접 입력 (개인정보 보호)
+//   - 결과를 클립보드 + 새 탭으로 표시 (인쇄 가능)
+// =====================================================================
+function buildEmsFormText(data) {
+  const r = data.report || {};
+  const sample = data.sample || {};
+  const opqrst = data.opqrst || {};
+  const treatments = data.treatment_track || [];
+  const lines = [];
+  const sep = "══════════════════════════════════════════════";
+
+  lines.push(sep);
+  lines.push("       119 구급활동일지 — 자동 추출 초안");
+  lines.push("        (별지 제5호서식 / 119구조ㆍ구급에 관한 법률 시행규칙)");
+  lines.push(sep);
+  lines.push(`생성: ${new Date().toLocaleString("ko-KR")}`);
+  if (getUserName()) lines.push(`기록자: ${getUserName()}`);
+  lines.push("");
+  lines.push("※ 음성에서 추출한 항목만 자동 채움. 나머지는 직접 작성.");
+  lines.push("");
+
+  // 1. 환자 인적사항 (전부 직접 입력 - 개인정보 보호)
+  lines.push("【1. 환자 인적사항】 (직접 입력)");
+  lines.push("  성명: ___________________");
+  lines.push("  나이: _____세    성별: [ ]남 [ ]여");
+  lines.push("  생년월일: _______________");
+  lines.push("  주소: ___________________________________________");
+  lines.push("  전화: ___________________");
+  lines.push("  보호자: __________ (관계: _____, 전화: _________)");
+  lines.push("  [ ]외국인 (국적: _______)");
+  lines.push("");
+
+  // 2. 구급 출동 시각 (구급차 단말에서)
+  lines.push("【2. 구급 출동】 (구급차 단말 참조)");
+  lines.push("  신고 일시: ______. ____. ____. __:__");
+  lines.push("  신고자 전화: _________   신고방법: [ ]일반전화 [ ]휴대전화 [ ]기타");
+  lines.push("  출동 시각: __:__   |   현장 도착: __:__");
+  lines.push("  환자 접촉: __:__   |   현장 출발: __:__");
+  lines.push("  병원 도착: __:__   |   귀소 시각: __:__");
+  lines.push("  거리: ____km");
+  lines.push("  환자발생 위치: ___________________________________");
+  lines.push("  발생 장소(택일): [ ]집 [ ]집단거주시설 [ ]도로 [ ]도로외 교통지역");
+  lines.push("                  [ ]오락/문화/공공시설 [ ]학교/교육시설 [ ]운동시설");
+  lines.push("                  [ ]상업시설 [ ]의료관련시설 [ ]공장/산업/건설시설");
+  lines.push("                  [ ]일차산업장 [ ]바다/강/산/논밭 [ ]기타");
+  lines.push("  출동 유형: [ ]정상 [ ]오인 [ ]거짓 [ ]취소 [ ]기타");
+  lines.push("");
+
+  // 3. 환자 증상 (자동)
+  lines.push("【3. 환자 증상】");
+  lines.push(`  ◆ 주 호소 (자동): ${r.chief_complaint || "(추출 없음)"}`);
+  if (sample.E) lines.push(`  ◆ 발생경위 (SAMPLE-E): ${sample.E}`);
+  if (opqrst.O) lines.push(`  ◆ 발병 (OPQRST-O): ${opqrst.O}`);
+  if (opqrst.Q) lines.push(`  ◆ 양상 (OPQRST-Q): ${opqrst.Q}`);
+  if (opqrst.S) lines.push(`  ◆ 강도 (OPQRST-S): ${opqrst.S}`);
+  lines.push("  ◆ 증상 체크박스 (위 주 호소 보고 직접 체크):");
+  lines.push("    [ ]두통 [ ]흉통 [ ]복통 [ ]요통 [ ]분만진통 [ ]그 밖의 통증");
+  lines.push("    [ ]골절 [ ]탈구 [ ]삠 [ ]열상 [ ]찰과상 [ ]타박상 [ ]절단 [ ]화상");
+  lines.push("    [ ]의식장애 [ ]기도이물 [ ]기침 [ ]호흡곤란 [ ]호흡정지");
+  lines.push("    [ ]두근거림 [ ]가슴불편감 [ ]심정지 [ ]경련/발작 [ ]실신");
+  lines.push("    [ ]오심 [ ]구토 [ ]설사 [ ]변비 [ ]배뇨장애 [ ]객혈 [ ]토혈");
+  lines.push("    [ ]혈변 [ ]비출혈 [ ]질출혈 [ ]그 밖의 출혈 [ ]고열 [ ]저체온증");
+  lines.push("    [ ]어지러움 [ ]마비 [ ]전신쇠약 [ ]정신장애 [ ]기타");
+  lines.push("");
+
+  // 4. 환자 발생 유형 / 병력
+  lines.push("【4. 환자 발생 유형】");
+  lines.push("  [ ]질병   [ ]질병외   [ ]기타 (택일)");
+  lines.push(`  ◆ 병력 (SAMPLE-P, 자동): ${sample.P || "(없음/미상)"}`);
+  lines.push(`  ◆ 복용 약물 (SAMPLE-M): ${sample.M || "(없음)"}`);
+  lines.push(`  ◆ 알레르기 (SAMPLE-A): ${sample.A || "(없음)"}`);
+  lines.push(`  ◆ 마지막 식사 (SAMPLE-L): ${sample.L || "(미상)"}`);
+  lines.push("  ◆ 병력 체크박스:");
+  lines.push("    [ ]고혈압 [ ]당뇨 [ ]뇌혈관질환 [ ]심장질환 [ ]폐질환 [ ]결핵");
+  lines.push("    [ ]간염 [ ]간경화 [ ]알레르기 [ ]암 [ ]신부전 [ ]감염병 [ ]기타");
+  lines.push("");
+
+  // 5. 환자 평가 - 의식상태 (AVPU)
+  lines.push("【5. 환자 평가】");
+  lines.push(`  ◆ 의식수준 (자동): ${r.consciousness || "(미상)"}`);
+
+  // AVPU 추출 - treatment_track의 details.ams
+  const avpuRecords = [];
+  for (const t of treatments) {
+    const ams = t.details && t.details.ams;
+    if (ams) avpuRecords.push({ time: t.time, ams });
+  }
+  if (avpuRecords.length > 0) {
+    avpuRecords.slice(0, 2).forEach((rec, i) => {
+      lines.push(`    ${i + 1}차 (${rec.time || "시간미상"}): [${rec.ams === "A" ? "✓" : " "}]A [${rec.ams === "V" ? "✓" : " "}]V [${rec.ams === "P" ? "✓" : " "}]P [${rec.ams === "U" ? "✓" : " "}]U`);
+    });
+    if (avpuRecords.length < 2) lines.push("    2차: __:__   [ ]A [ ]V [ ]P [ ]U");
+  } else {
+    lines.push("    1차: __:__   [ ]A [ ]V [ ]P [ ]U");
+    lines.push("    2차: __:__   [ ]A [ ]V [ ]P [ ]U");
+  }
+  lines.push("  ◆ 동공반응: 좌 [ ]정상 [ ]축동 [ ]산동 [ ]측정불가 / 우 [ ]정상 [ ]축동 [ ]산동 [ ]측정불가");
+  lines.push("");
+
+  // 6. 활력 징후 (자동, 가장 핵심)
+  lines.push("【6. 활력 징후】 (자동 — 시각별)");
+  const vitalsRecords = treatments.filter(t => t.category === "vitals" || (t.details && (t.details.bp || t.details.hr || t.details.spo2 || t.details.bst)));
+  if (vitalsRecords.length > 0) {
+    lines.push("  시각   | 혈압        | 맥박 | 호흡 | 체온 | SpO₂ | 혈당");
+    lines.push("  " + "─".repeat(64));
+    const nv = (x) => (x == null ? "—" : String(x));
+    for (const v of vitalsRecords) {
+      const d = v.details || {};
+      const time = (v.time || "  -  ").padEnd(6);
+      const bp = nv(d.bp).padEnd(11);
+      const hr = nv(d.hr).padEnd(4);
+      const rr = nv(d.rr).padEnd(4);
+      const tp = nv(d.temp).padEnd(4);
+      const sp = nv(d.spo2).padEnd(4);
+      const bst = nv(d.bst);
+      lines.push(`  ${time}| ${bp} | ${hr} | ${rr} | ${tp} | ${sp} | ${bst}`);
+    }
+  } else {
+    lines.push("  (음성에서 활력징후 추출 안 됨)");
+    lines.push("  __:__  / __/__ mmHg / __회 / __회 / __℃ / __% / __mg/dL");
+    lines.push("  __:__  / __/__ mmHg / __회 / __회 / __℃ / __% / __mg/dL");
+  }
+  lines.push("");
+  lines.push("  ◆ 환자분류: [ ]LEVEL 1 [ ]LEVEL 2 [ ]LEVEL 3 [ ]LEVEL 4 [ ]LEVEL 5 [ ]사망추정");
+  lines.push("");
+
+  // 7. 응급처치 (자동)
+  lines.push("【7. 응급처치】 (자동 — 시각별)");
+  const proceduresAndMeds = treatments.filter(t => t.category === "procedure" || t.category === "medication" || t.category === "observation");
+  if (proceduresAndMeds.length > 0) {
+    for (const p of proceduresAndMeds) {
+      const d = p.details || {};
+      let line = `  ${p.time || "__:__"} · ${p.content || ""}`;
+      if (d.medication_name) line += `  [약물: ${d.medication_name}${d.medication_dose ? " " + d.medication_dose : ""}]`;
+      if (d.procedure_name) line += `  [술기: ${d.procedure_name}]`;
+      lines.push(line);
+    }
+  } else {
+    lines.push("  (음성에서 처치 추출 안 됨)");
+  }
+  lines.push("");
+  lines.push("  ◆ 양식 체크박스 매핑 가이드:");
+  lines.push("    [ ]기도확보: [ ]도수조작 [ ]기도유지기 [ ]기관삽관 [ ]성문외 기도유지기 [ ]흡인기");
+  lines.push("    [ ]산소투여: ___L/min ([ ]비관 [ ]안면마스크 [ ]비재호흡마스크 [ ]BVM)");
+  lines.push("    [ ]CPR: [ ]실시 [ ]거부 [ ]DNR [ ]유보 / [ ]ECG / [ ]AED");
+  lines.push("    [ ]순환보조: [ ]정맥로 확보 [ ]수액공급(__cc) / [ ]약물투여(_____)");
+  lines.push("    [ ]고정: [ ]목뼈 [ ]척추 [ ]부목 [ ]머리");
+  lines.push("    [ ]상처처치: [ ]지혈 [ ]상처 소독 / [ ]분만 / [ ]보온");
+  lines.push("");
+
+  // 8. 의료지도
+  lines.push("【8. 의료지도】 (직접 입력)");
+  lines.push("  [ ]연결 [ ]미연결   요청시간: __:__");
+  lines.push("  요청방법: [ ]일반전화 [ ]휴대전화(음성/화상) [ ]무전기 [ ]기타");
+  lines.push("  의료지도 기관: [ ]소방 [ ]병원 [ ]기타 / 의사 성명: __________");
+  lines.push("  의료지도 내용: [ ]응급처치 [ ]약물투여 [ ]병원선정 [ ]환자평가 [ ]기타");
+  lines.push("");
+
+  // 9. 환자 이송
+  lines.push("【9. 환자 이송】");
+  lines.push(`  ◆ 이송 기관 (자동): ${r.hospital || "(미상)"}`);
+  lines.push("  ◆ 도착시간: __:__  (위 활력 측정 시각 참조)");
+  lines.push("  ◆ 거리: ____km   [ ]관할  [ ]타 시ㆍ도");
+  lines.push("  ◆ 의료기관 선정자: [ ]구급대 [ ]119상황실 [ ]구급상황센터 [ ]환자/보호자");
+  lines.push("  ◆ 환자 인수자: [ ]의사 [ ]간호사 [ ]응급구조사 [ ]기타");
+  lines.push("");
+
+  // 10. 인계 사항 (자동, 가장 중요)
+  lines.push("【10. 인계 사항】 (의료진에게 전달)");
+  if (r.handover) {
+    // 긴 인계 사항은 들여쓰기 적용
+    const wrapped = r.handover.match(/.{1,60}(\s|$)/g) || [r.handover];
+    wrapped.forEach(w => lines.push("  " + w.trim()));
+  } else {
+    lines.push("  (자동 추출 안 됨 — 직접 작성)");
+  }
+  lines.push("");
+
+  // 11. 출동 인원 (직접 입력)
+  lines.push("【11. 출동 인원】 (직접 입력 + 서명)");
+  lines.push("  의   사: 소속______ / 성명______ / 서명_____");
+  lines.push("  구급대원1: [ ]1급 [ ]2급 [ ]간호사 / 계급_____ / 성명______ / 서명_____");
+  lines.push("  구급대원2: [ ]1급 [ ]2급 [ ]간호사 / 계급_____ / 성명______ / 서명_____");
+  lines.push("  운전요원: [ ]1급 [ ]2급 [ ]간호사 / 계급_____ / 성명______ / 서명_____");
+  lines.push("");
+
+  // 12. 미이송 / 공동대응 / 장애요인
+  lines.push("【12. 기타】");
+  lines.push("  ◆ 공동대응: [ ]헬기 [ ]펌뷸런스 [ ]경찰 [ ]구급차 [ ]기타");
+  lines.push("  ◆ 미이송: [ ]취소 [ ]타차량 [ ]환자 없음 [ ]현장처치 [ ]이송거부 [ ]이송거절 [ ]경찰인계 [ ]이송 불필요 [ ]사망");
+  lines.push("  ◆ 장애요인: [ ]없음 [ ]장거리이송 [ ]보호자요구 [ ]원거리병원 [ ]원거리출동 [ ]만취자 [ ]폭행 [ ]교통정체 [ ]폭우/폭설");
+  lines.push("");
+
+  // 13. 품질 평가 (참고)
+  const qa = data.quality_assessment || {};
+  const halls = qa.hallucination_suspected || [];
+  const oms = qa.omission_suspected || [];
+  const errs = qa.terminology_errors || [];
+  if (halls.length || oms.length || errs.length) {
+    lines.push("【⚠️ 음성 변환 품질 점검】");
+    if (halls.length) lines.push("  환각 의심: " + halls.join(" / "));
+    if (oms.length) lines.push("  누락 의심: " + oms.join(" / "));
+    if (errs.length) lines.push("  용어 오류: " + errs.join(" / "));
+    lines.push("  → 위 내용이 실제와 다르면 수정 후 양식에 반영하세요.");
+    lines.push("");
+  }
+
+  lines.push(sep);
+  lines.push("※ 이 초안은 음성 자동 기록에서 추출한 결과입니다.");
+  lines.push("※ NEDIS 또는 종이 양식(별지 제5호서식)에 옮긴 뒤");
+  lines.push("※ 환자 인적사항 등 빈칸을 직접 작성하시기 바랍니다.");
+  lines.push(sep);
+
+  return lines.join("\n");
+}
+
+async function exportEmsForm() {
+  if (!currentData) {
+    alert("출동 데이터가 없습니다. 음성 처리 후 다시 시도하세요.");
+    return;
+  }
+  const text = buildEmsFormText(currentData);
+
+  // 1) 클립보드 복사
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    // 폴백
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+
+  // 2) 새 탭에 표시 (인쇄·검토용)
+  const w = window.open("", "_blank");
+  if (w) {
+    const escapeHtmlMin = (s) => String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>119 구급활동일지 — ${escapeHtmlMin(getUserName() || "EMS")}</title>
+<style>
+  body { font-family: 'Noto Sans KR', monospace; font-size: 13px; line-height: 1.5; padding: 24px; max-width: 900px; margin: 0 auto; background: #f8fafc; }
+  pre { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); white-space: pre-wrap; word-break: keep-all; }
+  .actions { position: sticky; top: 0; background: #f8fafc; padding: 12px 0; margin-bottom: 12px; display: flex; gap: 8px; }
+  button { padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 14px; }
+  button.primary { background: #2563eb; color: white; border-color: #2563eb; }
+  @media print {
+    body { background: white; padding: 0; }
+    pre { box-shadow: none; padding: 0; }
+    .actions { display: none; }
+  }
+</style></head><body>
+<div class="actions">
+  <button class="primary" onclick="window.print()">🖨️ 인쇄</button>
+  <button onclick="navigator.clipboard.writeText(document.getElementById('content').textContent); this.textContent='✓ 복사됨'">📋 다시 복사</button>
+  <button onclick="window.close()">닫기</button>
+</div>
+<pre id="content">${escapeHtmlMin(text)}</pre>
+</body></html>`);
+    w.document.close();
+  }
+
+  alert("구급활동일지 초안이 클립보드에 복사되었고 새 탭에 표시됐습니다.\nNEDIS·종이 양식에 옮겨 적으세요.");
+}
+
 async function copyShareText(text, successMsg) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1545,6 +1819,7 @@ document.getElementById("btn-download-json").addEventListener("click", downloadJ
 document.getElementById("btn-download-md").addEventListener("click", downloadMarkdown);
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
+document.getElementById("btn-ems-form").addEventListener("click", exportEmsForm);
 
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);
