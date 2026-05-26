@@ -105,9 +105,53 @@ function promptUserName() {
   setUserName(input);
 }
 
-// 페이지 로드 시 한 번 — 미설정이면 잠시 후 입력 받음 (취소하면 그대로 진행)
+// =====================================================================
+// 첫 사용 환영 모달 (onboarding)
+//   - localStorage["emsOnboardingV1"] 없으면 표시
+//   - 사용자명 입력 필수 + 데이터 격리·자동삭제·검증 원칙 안내
+// =====================================================================
+const ONBOARDING_KEY = "emsOnboardingV1";
+
+function shouldShowOnboarding() {
+  return !localStorage.getItem(ONBOARDING_KEY);
+}
+
+function showOnboardingModal() {
+  const modal = document.getElementById("modal-onboarding");
+  const input = document.getElementById("onboarding-name");
+  if (!modal || !input) return;
+  input.value = getUserName() || "";
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  setTimeout(() => input.focus(), 100);
+}
+
+function hideOnboardingModal() {
+  const modal = document.getElementById("modal-onboarding");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function completeOnboarding() {
+  const input = document.getElementById("onboarding-name");
+  const name = (input.value || "").trim();
+  if (!name) {
+    alert("본인 이름을 입력해주세요.");
+    input.focus();
+    return;
+  }
+  setUserName(name);
+  localStorage.setItem(ONBOARDING_KEY, new Date().toISOString());
+  hideOnboardingModal();
+}
+
+// 페이지 로드 시 한 번 — 첫 사용자에게 환영 모달 표시
 function ensureUserOnFirstLoad() {
-  if (!getUserName()) {
+  if (shouldShowOnboarding()) {
+    setTimeout(() => showOnboardingModal(), 500);
+  } else if (!getUserName()) {
+    // onboarding 은 봤지만 사용자명이 어쩌다 비었으면 prompt 로 fallback
     setTimeout(() => promptUserName(), 800);
   }
 }
@@ -1679,6 +1723,7 @@ async function clearAllLocalData() {
   localStorage.removeItem("emsApiBase");
   localStorage.removeItem("emsApiKey");
   localStorage.removeItem(RECORDS_KEY);
+  localStorage.removeItem(ONBOARDING_KEY);
   await clearAllAudioBlobs();
   resetScreen();
   hideEndSessionModal();
@@ -2237,6 +2282,12 @@ document.getElementById("btn-download-md").addEventListener("click", downloadMar
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
 document.getElementById("btn-ems-form").addEventListener("click", exportEmsForm);
+
+// 첫 사용 환영 모달
+document.getElementById("btn-onboarding-start").addEventListener("click", completeOnboarding);
+document.getElementById("onboarding-name").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") completeOnboarding();
+});
 
 // 옵션 C — Transcript 편집·재구조화
 document.getElementById("btn-restructure").addEventListener("click", restructureFromTranscript);
