@@ -28,7 +28,7 @@ binding = "ASSETS"
 # 출력된 id 를 아래에 채워주세요. (지금은 placeholder)
 [[kv_namespaces]]
 binding = "EMS_RECORDS"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "0c4054e22c184c6eb687bfcf181e7325"
 
 # 무료 티어 한도:
 #   - 10만 요청/일
