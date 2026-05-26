@@ -1286,6 +1286,15 @@ async function fetchAndRenderAdminList() {
       method: "GET",
       headers: adminHeaders(),
     });
+    // 옛/잘못된 admin_key 자동 정리 — 403 시 localStorage 비우고 PIN 모달로 안내
+    if (res.status === 403) {
+      localStorage.removeItem("emsAdminKey");
+      refreshAdminButton();
+      hideAdminModal();
+      alert("관리자 키가 만료됐거나 잘못됐습니다.\n다시 PIN을 입력해주세요.");
+      setTimeout(() => showAdminPinModal(), 200);
+      return;
+    }
     if (!res.ok) {
       const errBody = await res.text();
       throw new Error(`HTTP ${res.status}: ${errBody}`);
