@@ -194,6 +194,7 @@ function renderAll(data) {
   renderOpqrst(data);
   renderQuality(data);
   renderMeta(data);
+  refreshAudioButton(); // 음원 버튼 표시 여부
 }
 
 // 1. 요약 카드
@@ -607,16 +608,150 @@ function buildMarkdown(data) {
 }
 
 // =====================================================================
+// 음원 보관 (IndexedDB) — CLAUDE.md 원칙: 검증용 임시 보관 + 7일 자동 삭제
+//
+// 저장: idb.audioBlobs[recordId] = { blob, mimeType, filename, savedAt }
+// localStorage 한도(5MB) 넘어가는 음성도 처리 가능 (수백 MB)
+// =====================================================================
+const AUDIO_DB_NAME = "emsAudioDB";
+const AUDIO_STORE = "audioBlobs";
+const AUDIO_DB_VERSION = 1;
+const AUDIO_RETENTION_DAYS = 7;
+
+function openAudioDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(AUDIO_DB_NAME, AUDIO_DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(AUDIO_STORE)) {
+        db.createObjectStore(AUDIO_STORE, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveAudioBlob(recordId, blob, filename) {
+  if (!recordId || !blob) return false;
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      store.put({
+        id: recordId,
+        blob,
+        mimeType: blob.type || "audio/webm",
+        filename: filename || "recording.webm",
+        sizeBytes: blob.size,
+        savedAt: new Date().toISOString(),
+      });
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); resolve(false); };
+    });
+  } catch (e) {
+    console.error("음원 저장 실패:", e);
+    return false;
+  }
+}
+
+async function getAudioBlob(recordId) {
+  if (!recordId) return null;
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(AUDIO_STORE, "readonly");
+      const store = tx.objectStore(AUDIO_STORE);
+      const req = store.get(recordId);
+      req.onsuccess = () => { db.close(); resolve(req.result || null); };
+      req.onerror = () => { db.close(); resolve(null); };
+    });
+  } catch (e) {
+    console.error("음원 조회 실패:", e);
+    return null;
+  }
+}
+
+async function deleteAudioBlob(recordId) {
+  if (!recordId) return;
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      tx.objectStore(AUDIO_STORE).delete(recordId);
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); resolve(false); };
+    });
+  } catch (e) {
+    console.error("음원 삭제 실패:", e);
+  }
+}
+
+async function clearAllAudioBlobs() {
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      tx.objectStore(AUDIO_STORE).clear();
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); resolve(false); };
+    });
+  } catch (e) {
+    console.error("음원 전체 삭제 실패:", e);
+  }
+}
+
+async function listAudioIds() {
+  try {
+    const db = await openAudioDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(AUDIO_STORE, "readonly");
+      const req = tx.objectStore(AUDIO_STORE).getAllKeys();
+      req.onsuccess = () => { db.close(); resolve(req.result || []); };
+      req.onerror = () => { db.close(); resolve([]); };
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+// 7일 이상 된 음원 자동 삭제 (페이지 로드 시 호출)
+async function purgeExpiredAudio() {
+  try {
+    const db = await openAudioDB();
+    const tx = db.transaction(AUDIO_STORE, "readwrite");
+    const store = tx.objectStore(AUDIO_STORE);
+    const all = await new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+    const cutoff = Date.now() - AUDIO_RETENTION_DAYS * 86400 * 1000;
+    let deleted = 0;
+    for (const item of all) {
+      const savedTime = new Date(item.savedAt).getTime();
+      if (savedTime < cutoff) {
+        store.delete(item.id);
+        deleted++;
+      }
+    }
+    return new Promise((resolve) => {
+      tx.oncomplete = () => { db.close(); if (deleted > 0) console.log(`음원 ${deleted}건 자동 삭제 (${AUDIO_RETENTION_DAYS}일 경과)`); resolve(deleted); };
+      tx.onerror = () => { db.close(); resolve(0); };
+    });
+  } catch (e) {
+    return 0;
+  }
+}
+
+// =====================================================================
 // 출동 기록 누적 저장 (localStorage)
 //
 // 저장 구조: localStorage["emsRecords"] = JSON.stringify([record, ...])
-// 각 record = { id, saved_at, user, source, summary, data }
-//   - id: 충돌 안 나는 고유 ID
-//   - saved_at: ISO 타임스탬프
-//   - user: 사장님 또는 동료 이름 (저장 시점 사용자)
-//   - source: "recording" | "file:..." | (데모는 저장 안 함)
-//   - summary: 목록에 보일 요약 필드
-//   - data: 전체 structured JSON (불러오기용)
+// 각 record = { id, saved_at, user, source, summary, data, has_audio }
+//   - id: 충돌 안 나는 고유 ID (음원 IndexedDB 와도 매핑)
+//   - has_audio: 음원이 IndexedDB 에 있으면 true (자동 삭제로 false 될 수 있음)
 // =====================================================================
 const RECORDS_KEY = "emsRecords";
 
@@ -647,14 +782,15 @@ function saveAllRecords(records) {
   }
 }
 
-function saveCurrentRecord(sourceLabel) {
-  if (!currentData) return false;
+function saveCurrentRecord(sourceLabel, hasAudio = false) {
+  if (!currentData) return null;
   const report = currentData.report || {};
   const record = {
     id: `rec_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     saved_at: new Date().toISOString(),
     user: getUserName() || "",
     source: sourceLabel,
+    has_audio: !!hasAudio,
     summary: {
       chief_complaint: report.chief_complaint || "",
       consciousness: report.consciousness || "",
@@ -665,17 +801,21 @@ function saveCurrentRecord(sourceLabel) {
   };
   const list = getAllRecords();
   list.unshift(record); // 최신이 위로
-  return saveAllRecords(list);
+  const ok = saveAllRecords(list);
+  return ok ? record.id : null;
 }
 
-function deleteRecord(id) {
+async function deleteRecord(id) {
   const list = getAllRecords().filter((r) => r.id !== id);
   saveAllRecords(list);
+  // 매칭되는 음원도 함께 삭제
+  await deleteAudioBlob(id);
 }
 
-function clearAllRecords() {
-  if (!confirm("모든 출동 기록을 삭제합니다. 복구할 수 없습니다.\n\n계속하시겠습니까?")) return;
+async function clearAllRecords() {
+  if (!confirm("모든 출동 기록과 보관 음원을 삭제합니다. 복구할 수 없습니다.\n\n계속하시겠습니까?")) return;
   saveAllRecords([]);
+  await clearAllAudioBlobs();
   renderRecordsList();
 }
 
@@ -739,6 +879,9 @@ function renderRecordsList() {
       : record.source && record.source.startsWith("file")
       ? `<span class="text-[10px] text-blue-600 dark:text-blue-400">📁 파일</span>`
       : "";
+    const audioBadge = record.has_audio
+      ? `<span class="text-[10px] text-amber-700 dark:text-amber-300" title="원음 보관 중 (7일)">🔊 원음</span>`
+      : "";
 
     card.innerHTML = `
       <div class="flex items-start justify-between gap-3 mb-2">
@@ -747,6 +890,7 @@ function renderRecordsList() {
             <span class="font-mono">${escapeHtml(fmtLocalDate(record.saved_at))}</span>
             ${userBadge}
             ${sourceBadge}
+            ${audioBadge}
           </div>
           <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
             ${escapeHtml(summary.chief_complaint || "(주증상 없음)")}
@@ -785,6 +929,11 @@ function loadRecordById(id) {
   currentData = record.data;
   currentLevel = `loaded:${record.id}`;
   isDemoMode = false;
+  // 음원 ID 매핑 — 재생 버튼이 즉시 인식
+  if (record.has_audio) {
+    if (!currentData._meta) currentData._meta = {};
+    currentData._meta.audio_record_id = record.id;
+  }
   renderAll(currentData);
   hideDemoBanner();
   showResults();
@@ -1138,6 +1287,115 @@ function buildEmsFormText(data) {
   return lines.join("\n");
 }
 
+// =====================================================================
+// 원음 재생 / 다운로드 / 삭제
+// =====================================================================
+let _audioObjectUrl = null; // URL 해제 추적
+
+function getCurrentAudioRecordId() {
+  if (!currentData || !currentData._meta) return null;
+  return currentData._meta.audio_record_id || null;
+}
+
+async function refreshAudioButton() {
+  const btn = document.getElementById("btn-play-audio");
+  if (!btn) return;
+  const recordId = getCurrentAudioRecordId();
+  if (!recordId) {
+    btn.classList.add("hidden");
+    return;
+  }
+  // IndexedDB에 실제로 음원이 있는지 확인 (7일 자동 삭제됐을 수도)
+  const audio = await getAudioBlob(recordId);
+  if (audio && audio.blob) {
+    btn.classList.remove("hidden");
+  } else {
+    btn.classList.add("hidden");
+    // currentData 의 audio_record_id 도 정리
+    if (currentData && currentData._meta) delete currentData._meta.audio_record_id;
+  }
+}
+
+async function playAudio() {
+  const recordId = getCurrentAudioRecordId();
+  if (!recordId) {
+    alert("재생할 음원이 없습니다.");
+    return;
+  }
+  const audio = await getAudioBlob(recordId);
+  if (!audio || !audio.blob) {
+    alert("음원을 찾을 수 없습니다. (자동 삭제됐을 수 있어요)");
+    refreshAudioButton();
+    return;
+  }
+
+  // 이전 URL 정리
+  if (_audioObjectUrl) {
+    URL.revokeObjectURL(_audioObjectUrl);
+    _audioObjectUrl = null;
+  }
+  _audioObjectUrl = URL.createObjectURL(audio.blob);
+
+  const player = document.getElementById("audio-player");
+  player.src = _audioObjectUrl;
+
+  // 메타 정보 표시
+  const sizeKb = (audio.sizeBytes / 1024).toFixed(1);
+  const savedDate = new Date(audio.savedAt).toLocaleString("ko-KR");
+  document.getElementById("audio-meta").textContent =
+    `${audio.filename} · ${sizeKb} KB · 저장 ${savedDate}`;
+
+  // 모달 열기
+  const modal = document.getElementById("modal-audio");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function hideAudioModal() {
+  const modal = document.getElementById("modal-audio");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  // 재생 일시정지 + URL 해제
+  const player = document.getElementById("audio-player");
+  player.pause();
+  if (_audioObjectUrl) {
+    URL.revokeObjectURL(_audioObjectUrl);
+    _audioObjectUrl = null;
+  }
+  player.src = "";
+}
+
+async function downloadCurrentAudio() {
+  const recordId = getCurrentAudioRecordId();
+  if (!recordId) return;
+  const audio = await getAudioBlob(recordId);
+  if (!audio || !audio.blob) {
+    alert("음원을 찾을 수 없습니다.");
+    return;
+  }
+  // 파일명: EMS_사용자_날짜_audio.확장자
+  const ext = (audio.filename || "").split(".").pop() || "webm";
+  const filename = buildFileName(`audio.${ext}`);
+  triggerDownload(audio.blob, filename);
+}
+
+async function deleteCurrentAudio() {
+  const recordId = getCurrentAudioRecordId();
+  if (!recordId) return;
+  if (!confirm("이 출동의 음원을 즉시 삭제하시겠습니까?\n(transcript와 구조화 결과는 유지됩니다.)")) return;
+  await deleteAudioBlob(recordId);
+  // 출동 기록에도 has_audio 갱신
+  const records = getAllRecords();
+  const rec = records.find((r) => r.id === recordId);
+  if (rec) {
+    rec.has_audio = false;
+    saveAllRecords(records);
+  }
+  hideAudioModal();
+  refreshAudioButton();
+  alert("음원이 삭제되었습니다.");
+}
+
 async function exportEmsForm() {
   if (!currentData) {
     alert("출동 데이터가 없습니다. 음성 처리 후 다시 시도하세요.");
@@ -1269,23 +1527,25 @@ function endSessionDiscard() {
   hideEndSessionModal();
 }
 
-function clearAllLocalData() {
+async function clearAllLocalData() {
   const ok = confirm(
     "⚠️ 완전 삭제 — 다음 항목이 모두 지워집니다:\n\n" +
     "  • 사용자 이름\n" +
     "  • 백엔드 URL (API_BASE)\n" +
     "  • 인증 토큰 (SHARED_SECRET)\n" +
-    "  • 현재 출동 데이터\n\n" +
+    "  • 출동 기록 전체 + 보관 음원\n" +
+    "  • 현재 화면 데이터\n\n" +
     "다음에 사용하시려면 ?api=&key= URL 로 다시 접속하셔야 합니다.\n\n계속하시겠습니까?"
   );
   if (!ok) return;
   localStorage.removeItem("emsUserName");
   localStorage.removeItem("emsApiBase");
   localStorage.removeItem("emsApiKey");
+  localStorage.removeItem(RECORDS_KEY);
+  await clearAllAudioBlobs();
   resetScreen();
   hideEndSessionModal();
-  alert("모든 로컬 데이터가 삭제되었습니다.\n페이지를 새로고침합니다.");
-  // 페이지 새로고침 (메모리상의 API_BASE/API_KEY 도 초기화)
+  alert("모든 로컬 데이터와 음원이 삭제되었습니다.\n페이지를 새로고침합니다.");
   setTimeout(() => window.location.reload(), 300);
 }
 
@@ -1775,10 +2035,22 @@ async function processAudio() {
     hideDemoBanner();
     showResults();
 
-    // 자동 저장 (출동 기록함에 누적)
+    // 자동 저장 (출동 기록함에 누적 + 음원 IndexedDB 저장)
     const sourceLabel = input.kind === "recording" ? "recording" : `file:${input.filename}`;
-    const saved = saveCurrentRecord(sourceLabel);
-    const savedNote = saved ? " 기록함에 자동 저장됨." : "";
+    // 음원도 함께 저장 시도 (실패해도 기록 자체는 저장)
+    const audioBlobToSave = input.blob;
+    const recordId = saveCurrentRecord(sourceLabel, !!audioBlobToSave);
+    let savedNote = recordId ? " 기록함 저장." : "";
+    if (recordId && audioBlobToSave) {
+      const audioOk = await saveAudioBlob(recordId, audioBlobToSave, input.filename);
+      if (audioOk) {
+        savedNote += " 🔊 원음 보관 (7일).";
+        // currentData 에도 음원 ID 박아둠 (재생 버튼이 즉시 인식)
+        if (!currentData._meta) currentData._meta = {};
+        currentData._meta.audio_record_id = recordId;
+        renderAll(currentData); // 음원 버튼 표시
+      }
+    }
 
     statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo}${savedNote} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
   } catch (e) {
@@ -1820,6 +2092,15 @@ document.getElementById("btn-download-md").addEventListener("click", downloadMar
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
 document.getElementById("btn-ems-form").addEventListener("click", exportEmsForm);
+
+// 원음 재생/다운로드/삭제
+document.getElementById("btn-play-audio").addEventListener("click", playAudio);
+document.getElementById("btn-audio-close").addEventListener("click", hideAudioModal);
+document.getElementById("btn-audio-download").addEventListener("click", downloadCurrentAudio);
+document.getElementById("btn-audio-delete").addEventListener("click", deleteCurrentAudio);
+document.getElementById("modal-audio").addEventListener("click", (e) => {
+  if (e.target.id === "modal-audio") hideAudioModal();
+});
 
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);
@@ -1869,6 +2150,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     hideEndSessionModal();
     hideRecordsModal();
+    hideAudioModal();
   }
 });
 
@@ -1890,3 +2172,18 @@ updateInputSummary();
 refreshUserDisplay();
 refreshRecordsCount();
 ensureUserOnFirstLoad();
+// 7일 이상 된 음원 자동 삭제 (백그라운드)
+purgeExpiredAudio().then((n) => {
+  if (n > 0) {
+    // 음원이 삭제됐으면 기록함의 has_audio 도 일치시킴
+    listAudioIds().then((ids) => {
+      const validSet = new Set(ids);
+      const records = getAllRecords();
+      let changed = false;
+      for (const r of records) {
+        if (r.has_audio && !validSet.has(r.id)) { r.has_audio = false; changed = true; }
+      }
+      if (changed) saveAllRecords(records);
+    });
+  }
+});
