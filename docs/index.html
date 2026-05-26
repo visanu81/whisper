@@ -480,6 +480,37 @@
       </div>
     </section>
 
+    <!-- STT 원본 transcript (검증·편집 — 옵션 C) -->
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
+      <details>
+        <summary class="cursor-pointer select-none flex items-center justify-between flex-wrap gap-2">
+          <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">
+            📄 원본 STT 텍스트 <span class="text-xs font-normal text-slate-400">(검증·편집)</span>
+          </h2>
+          <span id="transcript-meta" class="text-xs text-slate-400 dark:text-slate-500"></span>
+        </summary>
+        <div class="mt-4 space-y-3">
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            STT가 음성에서 들은 텍스트입니다. 의료용어/수치를 잘못 인식한 부분이 있으면
+            여기서 직접 수정 후 <b>"수정 후 다시 구조화"</b> 를 누르세요.
+            <br/>🔊 <b>원음</b> 버튼과 함께 사용하면 더 정확한 검증이 가능합니다.
+          </p>
+          <textarea id="transcript-edit"
+            class="w-full h-48 px-3 py-2 text-sm font-mono leading-relaxed border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+            placeholder="(아직 변환된 텍스트 없음 — 음성 처리 후 표시)"></textarea>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btn-restructure" class="px-3 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition">
+              💡 수정 후 다시 구조화
+            </button>
+            <button id="btn-transcript-reset" class="px-3 py-2 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="STT 원본으로 되돌리기">
+              ↩️ 원본으로
+            </button>
+            <span id="transcript-edit-hint" class="text-xs text-slate-500 dark:text-slate-400 flex-1"></span>
+          </div>
+        </div>
+      </details>
+    </section>
+
     <!-- 다운로드 / 공유 -->
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <p class="text-sm text-slate-600 dark:text-slate-300">구조화 결과 저장·공유</p>

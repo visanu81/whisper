@@ -194,7 +194,115 @@ function renderAll(data) {
   renderOpqrst(data);
   renderQuality(data);
   renderMeta(data);
-  refreshAudioButton(); // 음원 버튼 표시 여부
+  renderTranscript(data);     // 옵션 C — STT 원본 표시
+  refreshAudioButton();        // 옵션 B — 원음 버튼
+}
+
+// 옵션 C — STT 원본 transcript 표시 (편집 가능)
+function renderTranscript(data) {
+  const textarea = document.getElementById("transcript-edit");
+  const metaEl = document.getElementById("transcript-meta");
+  const hintEl = document.getElementById("transcript-edit-hint");
+  if (!textarea || !metaEl) return;
+
+  const meta = data._meta || {};
+  const transcript = meta.transcript || "";
+
+  textarea.value = transcript;
+  textarea.dataset.original = transcript; // 원본 보존
+  if (hintEl) hintEl.textContent = "";
+
+  // 메타 정보
+  if (transcript) {
+    const tinfo = meta.transcribe_info || {};
+    const charCount = transcript.length;
+    const elapsedStr = tinfo.elapsed ? ` · 변환 ${tinfo.elapsed}초` : "";
+    const modelStr = tinfo.model ? ` · ${tinfo.model}` : "";
+    metaEl.textContent = `${charCount}자${elapsedStr}${modelStr}`;
+  } else {
+    metaEl.textContent = "(원본 텍스트 없음 — 데모 또는 옛 기록)";
+  }
+}
+
+async function restructureFromTranscript() {
+  const textarea = document.getElementById("transcript-edit");
+  const btn = document.getElementById("btn-restructure");
+  const hint = document.getElementById("transcript-edit-hint");
+  if (!textarea) return;
+
+  const newTranscript = textarea.value.trim();
+  if (!newTranscript) {
+    alert("transcript가 비어 있습니다.");
+    return;
+  }
+
+  // 변경 안 됐는데 누르면 안내
+  if (newTranscript === (textarea.dataset.original || "").trim()) {
+    if (!confirm("transcript를 수정하지 않았습니다. 그래도 다시 구조화하시겠습니까?")) return;
+  }
+
+  btn.disabled = true;
+  hint.innerHTML = `<span class="text-blue-600 dark:text-blue-400">🔄 다시 구조화 중… (약 30초)</span>`;
+
+  const t0 = performance.now();
+  try {
+    const modelSelect = document.getElementById("model-select");
+    const res = await fetch(`${API_BASE}/api/structure`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ transcript: newTranscript, model: modelSelect.value }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errBody}`);
+    }
+    const newStructured = await res.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+
+    // 새 결과로 화면 업데이트 — 단, transcript / 음원 ID 유지
+    if (!newStructured._meta) newStructured._meta = {};
+    newStructured._meta.transcript = newTranscript;
+    const oldMeta = (currentData && currentData._meta) || {};
+    newStructured._meta.transcribe_info = oldMeta.transcribe_info || {};
+    if (oldMeta.audio_record_id) newStructured._meta.audio_record_id = oldMeta.audio_record_id;
+    newStructured._meta.restructured = true;
+    newStructured._meta.restructured_at = new Date().toISOString();
+
+    currentData = newStructured;
+    renderAll(currentData);
+
+    // 출동 기록에도 갱신 (마지막 항목이 현재 데이터일 가능성 — 모든 매칭 갱신은 복잡, 음원 ID 로 매칭)
+    if (oldMeta.audio_record_id) {
+      const records = getAllRecords();
+      const rec = records.find((r) => r.id === oldMeta.audio_record_id);
+      if (rec) {
+        rec.data = currentData;
+        rec.summary = {
+          chief_complaint: (currentData.report && currentData.report.chief_complaint) || rec.summary.chief_complaint,
+          consciousness: (currentData.report && currentData.report.consciousness) || rec.summary.consciousness,
+          hospital: (currentData.report && currentData.report.hospital) || rec.summary.hospital,
+          handover: (currentData.report && currentData.report.handover) || rec.summary.handover,
+        };
+        saveAllRecords(records);
+      }
+    }
+
+    hint.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400">✓ 재구조화 완료 (${elapsed}초). 위 카드들이 새로 업데이트됨.</span>`;
+    // 사용자가 결과를 즉시 볼 수 있게 details 열어둠
+  } catch (e) {
+    console.error(e);
+    hint.innerHTML = `<span class="text-rose-600 dark:text-rose-400">✗ 실패: ${escapeHtml(e.message || String(e))}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function resetTranscript() {
+  const textarea = document.getElementById("transcript-edit");
+  if (!textarea) return;
+  textarea.value = textarea.dataset.original || "";
+  const hint = document.getElementById("transcript-edit-hint");
+  if (hint) hint.innerHTML = `<span class="text-slate-500">↩️ STT 원본으로 되돌림</span>`;
 }
 
 // 1. 요약 카드
@@ -2028,6 +2136,14 @@ async function processAudio() {
 
     // 백엔드 응답: { transcribe: {...}, structured: {...} }
     currentData = json.structured;
+    // Transcript 를 _meta 에 보존 (옵션 C — 검증·편집·재구조화용)
+    const transcribeMeta = json.transcribe || {};
+    if (!currentData._meta) currentData._meta = {};
+    currentData._meta.transcript = transcribeMeta.transcript || "";
+    currentData._meta.transcribe_info = {
+      model: transcribeMeta.model || null,
+      elapsed: transcribeMeta.transcribe_elapsed_seconds || null,
+    };
     currentLevel = input.kind === "recording" ? "recording" : `upload_${input.filename}`;
     renderAll(currentData);
 
@@ -2092,6 +2208,10 @@ document.getElementById("btn-download-md").addEventListener("click", downloadMar
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
 document.getElementById("btn-ems-form").addEventListener("click", exportEmsForm);
+
+// 옵션 C — Transcript 편집·재구조화
+document.getElementById("btn-restructure").addEventListener("click", restructureFromTranscript);
+document.getElementById("btn-transcript-reset").addEventListener("click", resetTranscript);
 
 // 원음 재생/다운로드/삭제
 document.getElementById("btn-play-audio").addEventListener("click", playAudio);
