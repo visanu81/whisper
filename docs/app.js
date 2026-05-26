@@ -188,6 +188,7 @@ function hideDemoMenu() {
 // 렌더링 진입점
 // =====================================================================
 function renderAll(data) {
+  checkEmptyDataWarning(data); // 빈 데이터 경고 먼저
   renderSummary(data);
   renderTimeline(data);
   renderSample(data);
@@ -196,6 +197,34 @@ function renderAll(data) {
   renderMeta(data);
   renderTranscript(data);     // 옵션 C — STT 원본 표시
   refreshAudioButton();        // 옵션 B — 원음 버튼
+}
+
+// 빈 데이터 감지 — 의료 정보가 거의 없으면 경고 배너 표시
+//   조건: 핵심 카드(요약·타임라인·SAMPLE·OPQRST·처치) 모두 비어있을 때
+function checkEmptyDataWarning(data) {
+  const warning = document.getElementById("empty-data-warning");
+  if (!warning) return;
+
+  const report = data.report || {};
+  const sample = data.sample || {};
+  const opqrst = data.opqrst || {};
+  const timeline = data.integrated_timeline || [];
+  const speeches = data.patient_speech_track || [];
+  const treatments = data.treatment_track || [];
+
+  // 핵심 데이터가 있나?
+  const hasReport = report.chief_complaint || report.consciousness || report.hospital || report.handover;
+  const hasSample = sample.S || sample.A || sample.M || sample.P || sample.L || sample.E;
+  const hasOpqrst = opqrst.O || opqrst.P || opqrst.Q || opqrst.R || opqrst.S || opqrst.T;
+  const hasTimeline = timeline.length > 0 || speeches.length > 0 || treatments.length > 0;
+
+  const isEmpty = !hasReport && !hasSample && !hasOpqrst && !hasTimeline;
+
+  if (isEmpty) {
+    warning.classList.remove("hidden");
+  } else {
+    warning.classList.add("hidden");
+  }
 }
 
 // 옵션 C — STT 원본 transcript 표시 (편집 가능)
