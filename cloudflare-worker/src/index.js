@@ -198,16 +198,23 @@ async function authMiddleware(c, next) {
 app.use('*', authMiddleware);
 
 // 관리자 인증 — 특정 라우트에만 적용 (라우트 정의 시 명시적으로 호출)
+//   - ADMIN_PIN (4~8자리 짧은 PIN — 사장님 편의용, 외우기 좋음)
+//   - ADMIN_SECRET (64자 — 옛 방식, fallback)
+//   - 둘 중 하나라도 등록돼 있으면 X-Admin-Key 헤더가 그것과 일치해야 통과
 async function requireAdmin(c) {
-  const expected = c.env.ADMIN_SECRET;
-  if (!expected) {
-    return c.json({ error: 'Admin endpoint not configured (ADMIN_SECRET missing)' }, 503);
+  const expectedPin = c.env.ADMIN_PIN;
+  const expectedSecret = c.env.ADMIN_SECRET;
+  if (!expectedPin && !expectedSecret) {
+    return c.json({ error: 'Admin endpoint not configured (ADMIN_PIN or ADMIN_SECRET missing)' }, 503);
   }
   const provided = c.req.header('X-Admin-Key');
-  if (provided !== expected) {
+  if (!provided) {
     return c.json({ error: 'Admin auth required' }, 403);
   }
-  return null; // 통과
+  if (provided === expectedPin || provided === expectedSecret) {
+    return null; // 통과
+  }
+  return c.json({ error: 'Invalid admin key' }, 403);
 }
 
 // =====================================================================
@@ -220,7 +227,8 @@ app.get('/health', (c) => {
     auth_method: 'origin',
     allowed_origins: getAllowedOrigins(c.env),
     legacy_secret_fallback: !!c.env.SHARED_SECRET,
-    admin_configured: !!c.env.ADMIN_SECRET,
+    admin_configured: !!(c.env.ADMIN_PIN || c.env.ADMIN_SECRET),
+    admin_pin_set: !!c.env.ADMIN_PIN,
     records_storage: !!c.env.EMS_RECORDS ? 'kv' : 'none',
     service: 'EMS Companion API (Cloudflare Worker)',
   });

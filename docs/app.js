@@ -90,12 +90,116 @@ function adminHeaders(extra = {}) {
   return h;
 }
 
-// 헤더의 👑 관리자 버튼 표시/숨김
+// 헤더의 관리자 버튼 — 상태에 따라 라벨/색상 변경 (항상 표시)
+//   - 비활성: "🔒 관리자" (slate, PIN 입력 유도)
+//   - 활성:   "👑 관리자" (purple, 클릭 시 대시보드 모달)
 function refreshAdminButton() {
   const btn = document.getElementById("btn-admin");
-  if (!btn) return;
-  if (isAdmin()) btn.classList.remove("hidden");
-  else btn.classList.add("hidden");
+  const label = document.getElementById("btn-admin-label");
+  if (!btn || !label) return;
+  if (isAdmin()) {
+    label.textContent = "👑 관리자";
+    btn.className = "px-3 py-1.5 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 transition";
+    btn.title = "모든 사용자 출동 통합 조회 (관리자 활성)";
+  } else {
+    label.textContent = "🔒 관리자";
+    btn.className = "px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition";
+    btn.title = "관리자 모드 활성화 (PIN 필요)";
+  }
+}
+
+// 관리자 버튼 클릭 시 — 활성 상태에 따라 분기
+function onAdminButtonClick() {
+  if (isAdmin()) {
+    showAdminModal(); // 활성 → 대시보드 모달
+  } else {
+    showAdminPinModal(); // 비활성 → PIN 입력 모달
+  }
+}
+
+// =====================================================================
+// 관리자 PIN 입력 모달
+// =====================================================================
+let _adminPinFailCount = 0;
+let _adminPinLockedUntil = 0;
+
+function showAdminPinModal() {
+  const modal = document.getElementById("modal-admin-pin");
+  const input = document.getElementById("admin-pin-input");
+  const hint = document.getElementById("admin-pin-hint");
+  if (!modal || !input) return;
+  input.value = "";
+  hint.textContent = "";
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  setTimeout(() => input.focus(), 100);
+}
+
+function hideAdminPinModal() {
+  const modal = document.getElementById("modal-admin-pin");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+async function submitAdminPin() {
+  const input = document.getElementById("admin-pin-input");
+  const hint = document.getElementById("admin-pin-hint");
+  const submitBtn = document.getElementById("btn-admin-pin-submit");
+  if (!input) return;
+
+  // 실패 잠금 (5회 실패 후 30초 대기)
+  const now = Date.now();
+  if (now < _adminPinLockedUntil) {
+    const sec = Math.ceil((_adminPinLockedUntil - now) / 1000);
+    hint.innerHTML = `<span class="text-rose-600">🔒 잠시 후 다시 (${sec}초 대기)</span>`;
+    return;
+  }
+
+  const pin = (input.value || "").trim();
+  if (!pin) {
+    hint.innerHTML = `<span class="text-rose-600">PIN을 입력해주세요</span>`;
+    input.focus();
+    return;
+  }
+
+  submitBtn.disabled = true;
+  hint.innerHTML = `<span class="text-blue-600">🔄 확인 중…</span>`;
+
+  // 백엔드에 시험 호출 — GET /api/records?limit=1 + X-Admin-Key=PIN
+  try {
+    const res = await fetch(`${API_BASE}/api/records?limit=1`, {
+      method: "GET",
+      headers: authHeaders({ "X-Admin-Key": pin }),
+    });
+    if (res.ok) {
+      // 통과 — localStorage 저장 + 헤더 업데이트 + 대시보드 모달 열기
+      localStorage.setItem("emsAdminKey", pin);
+      _adminPinFailCount = 0;
+      refreshAdminButton();
+      hideAdminPinModal();
+      setTimeout(() => showAdminModal(), 200); // 대시보드 자동 표시
+    } else if (res.status === 403) {
+      _adminPinFailCount++;
+      if (_adminPinFailCount >= 5) {
+        _adminPinLockedUntil = now + 30000; // 30초 잠금
+        hint.innerHTML = `<span class="text-rose-600">❌ 5회 실패 → 30초 잠금</span>`;
+        _adminPinFailCount = 0;
+      } else {
+        hint.innerHTML = `<span class="text-rose-600">❌ 잘못된 PIN (${_adminPinFailCount}/5)</span>`;
+      }
+      input.value = "";
+      input.focus();
+    } else if (res.status === 503) {
+      hint.innerHTML = `<span class="text-amber-600">⚠️ 관리자 기능 미설정 (ADMIN_PIN 또는 ADMIN_SECRET 등록 필요)</span>`;
+    } else {
+      hint.innerHTML = `<span class="text-rose-600">알 수 없는 오류: HTTP ${res.status}</span>`;
+    }
+  } catch (e) {
+    hint.innerHTML = `<span class="text-rose-600">네트워크 오류: ${escapeHtml(e.message)}</span>`;
+  } finally {
+    submitBtn.disabled = false;
+  }
 }
 
 // 자동 백엔드 저장 — processAudio 성공 후 호출 (실패 silent)
@@ -2492,12 +2596,22 @@ document.getElementById("modal-audio").addEventListener("click", (e) => {
   if (e.target.id === "modal-audio") hideAudioModal();
 });
 
-// 관리자 통합 대시보드 (admin_key 있을 때만 헤더에 버튼 보임)
-document.getElementById("btn-admin").addEventListener("click", showAdminModal);
+// 관리자 — 헤더 버튼은 항상 표시. 활성 여부에 따라 분기 (PIN 입력 / 대시보드)
+document.getElementById("btn-admin").addEventListener("click", onAdminButtonClick);
 document.getElementById("btn-admin-close").addEventListener("click", hideAdminModal);
 document.getElementById("btn-admin-refresh").addEventListener("click", fetchAndRenderAdminList);
 document.getElementById("modal-admin").addEventListener("click", (e) => {
   if (e.target.id === "modal-admin") hideAdminModal();
+});
+
+// 관리자 PIN 입력 모달
+document.getElementById("btn-admin-pin-close").addEventListener("click", hideAdminPinModal);
+document.getElementById("btn-admin-pin-submit").addEventListener("click", submitAdminPin);
+document.getElementById("admin-pin-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitAdminPin();
+});
+document.getElementById("modal-admin-pin").addEventListener("click", (e) => {
+  if (e.target.id === "modal-admin-pin") hideAdminPinModal();
 });
 
 // 기록함
@@ -2550,6 +2664,7 @@ document.addEventListener("keydown", (e) => {
     hideRecordsModal();
     hideAudioModal();
     hideAdminModal();
+    hideAdminPinModal();
   }
 });
 
