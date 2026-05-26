@@ -36,6 +36,12 @@ const DEFAULT_API_BASE = "https://ems-api.visanu81.workers.dev";
     params.delete("key");
     changed = true;
   }
+  // 관리자 모드 — ?admin_key=xxx 로 한 번 접속하면 그 폰은 admin
+  if (params.has("admin_key")) {
+    localStorage.setItem("emsAdminKey", params.get("admin_key"));
+    params.delete("admin_key");
+    changed = true;
+  }
   if (changed) {
     const newSearch = params.toString();
     const newUrl =
@@ -64,6 +70,49 @@ function authHeaders(extra = {}) {
   const h = { ...extra };
   if (API_KEY) h["X-API-Key"] = API_KEY;
   return h;
+}
+
+// =====================================================================
+// 관리자 인증 — admin_key 보유 시 사장님 모드 (통합 대시보드)
+// =====================================================================
+function getAdminKey() {
+  return localStorage.getItem("emsAdminKey") || "";
+}
+
+function isAdmin() {
+  return !!getAdminKey();
+}
+
+function adminHeaders(extra = {}) {
+  const h = authHeaders(extra);
+  const k = getAdminKey();
+  if (k) h["X-Admin-Key"] = k;
+  return h;
+}
+
+// 헤더의 👑 관리자 버튼 표시/숨김
+function refreshAdminButton() {
+  const btn = document.getElementById("btn-admin");
+  if (!btn) return;
+  if (isAdmin()) btn.classList.remove("hidden");
+  else btn.classList.add("hidden");
+}
+
+// 자동 백엔드 저장 — processAudio 성공 후 호출 (실패 silent)
+async function saveRecordToBackend(record) {
+  if (!record) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/records`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(record),
+    });
+    if (!res.ok) {
+      console.warn("백엔드 KV 저장 실패:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.warn("백엔드 KV 저장 네트워크 오류:", e);
+  }
 }
 
 // =====================================================================
@@ -1101,6 +1150,142 @@ function renderRecordsList() {
   });
 }
 
+// =====================================================================
+// 관리자 통합 대시보드 — 모든 사용자의 출동 기록을 KV에서 조회
+// =====================================================================
+let _adminRecordsCache = null;
+
+function showAdminModal() {
+  if (!isAdmin()) {
+    alert("관리자 모드가 활성화되지 않았습니다.\n?admin_key=... URL 로 한 번 접속해주세요.");
+    return;
+  }
+  document.getElementById("modal-admin").classList.remove("hidden");
+  document.getElementById("modal-admin").classList.add("flex");
+  fetchAndRenderAdminList();
+}
+
+function hideAdminModal() {
+  const el = document.getElementById("modal-admin");
+  el.classList.add("hidden");
+  el.classList.remove("flex");
+}
+
+async function fetchAndRenderAdminList() {
+  const summaryEl = document.getElementById("admin-summary");
+  const container = document.getElementById("admin-list");
+  summaryEl.textContent = "불러오는 중…";
+  container.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">불러오는 중…</p>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/records?limit=200`, {
+      method: "GET",
+      headers: adminHeaders(),
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errBody}`);
+    }
+    const json = await res.json();
+    _adminRecordsCache = json.records || [];
+    renderAdminListInternal(_adminRecordsCache);
+  } catch (e) {
+    summaryEl.textContent = "조회 실패";
+    container.innerHTML = `<p class="text-center text-rose-500 py-8 text-sm">${escapeHtml(e.message || String(e))}</p>`;
+  }
+}
+
+function renderAdminListInternal(records) {
+  const summaryEl = document.getElementById("admin-summary");
+  const container = document.getElementById("admin-list");
+  if (!records || records.length === 0) {
+    summaryEl.textContent = "기록 없음";
+    container.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">아직 KV에 저장된 출동 기록이 없습니다.<br/><span class="text-[11px]">동료가 처리하면 자동으로 여기 누적됩니다.</span></p>`;
+    return;
+  }
+
+  const users = new Set(records.map((r) => r.user).filter(Boolean));
+  summaryEl.textContent = `총 ${records.length}건 · 사용자 ${users.size}명`;
+
+  container.innerHTML = "";
+  for (const record of records) {
+    const card = document.createElement("div");
+    card.className = "border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition";
+    const summary = record.summary || {};
+    const userBadge = record.user
+      ? `<span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200">👤 ${escapeHtml(record.user)}</span>`
+      : `<span class="text-[10px] text-slate-400">(이름 없음)</span>`;
+    const sourceBadge = record.source && record.source.startsWith("recording")
+      ? `<span class="text-[10px] text-rose-600 dark:text-rose-400">🎤 직접 녹음</span>`
+      : record.source && record.source.startsWith("file")
+      ? `<span class="text-[10px] text-blue-600 dark:text-blue-400">📁 파일</span>`
+      : "";
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-slate-400 mb-1">
+            <span class="font-mono">${escapeHtml(fmtLocalDate(record.saved_at))}</span>
+            ${userBadge}
+            ${sourceBadge}
+          </div>
+          <div class="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+            ${escapeHtml(summary.chief_complaint || "(주증상 없음)")}
+          </div>
+          ${summary.consciousness ? `<div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">의식: ${escapeHtml(summary.consciousness)}${summary.hospital ? " · 이송: " + escapeHtml(summary.hospital) : ""}</div>` : ""}
+        </div>
+        <div class="flex gap-1 shrink-0">
+          <button data-admin-load="${escapeHtml(record.id)}" class="admin-load px-2 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition">불러오기</button>
+          <button data-admin-del="${escapeHtml(record.id)}" class="admin-del px-2 py-1 text-xs rounded text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="KV 에서 삭제">🗑️</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+
+  container.querySelectorAll(".admin-load").forEach((btn) => {
+    btn.addEventListener("click", () => loadRemoteRecord(btn.getAttribute("data-admin-load")));
+  });
+  container.querySelectorAll(".admin-del").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (confirm("이 기록을 KV에서 삭제하시겠습니까? (동료 폰의 로컬 기록은 그대로 남습니다.)")) {
+        deleteRemoteRecord(btn.getAttribute("data-admin-del"));
+      }
+    });
+  });
+}
+
+function loadRemoteRecord(id) {
+  const records = _adminRecordsCache || [];
+  const record = records.find((r) => r.id === id);
+  if (!record) {
+    alert("기록을 찾을 수 없습니다.");
+    return;
+  }
+  currentData = record.data;
+  currentLevel = `admin:${record.id}`;
+  isDemoMode = false;
+  renderAll(currentData);
+  hideDemoBanner();
+  showResults();
+  hideAdminModal();
+}
+
+async function deleteRemoteRecord(id) {
+  try {
+    const res = await fetch(`${API_BASE}/api/records/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    }
+    // 다시 조회
+    await fetchAndRenderAdminList();
+  } catch (e) {
+    alert(`삭제 실패: ${e.message}`);
+  }
+}
+
 function loadRecordById(id) {
   const record = getAllRecords().find((r) => r.id === id);
   if (!record) {
@@ -1722,6 +1907,7 @@ async function clearAllLocalData() {
   localStorage.removeItem("emsUserName");
   localStorage.removeItem("emsApiBase");
   localStorage.removeItem("emsApiKey");
+  localStorage.removeItem("emsAdminKey");
   localStorage.removeItem(RECORDS_KEY);
   localStorage.removeItem(ONBOARDING_KEY);
   await clearAllAudioBlobs();
@@ -2225,9 +2411,8 @@ async function processAudio() {
     hideDemoBanner();
     showResults();
 
-    // 자동 저장 (출동 기록함에 누적 + 음원 IndexedDB 저장)
+    // 자동 저장 (출동 기록함에 누적 + 음원 IndexedDB 저장 + 백엔드 KV 사본)
     const sourceLabel = input.kind === "recording" ? "recording" : `file:${input.filename}`;
-    // 음원도 함께 저장 시도 (실패해도 기록 자체는 저장)
     const audioBlobToSave = input.blob;
     const recordId = saveCurrentRecord(sourceLabel, !!audioBlobToSave);
     let savedNote = recordId ? " 기록함 저장." : "";
@@ -2235,11 +2420,16 @@ async function processAudio() {
       const audioOk = await saveAudioBlob(recordId, audioBlobToSave, input.filename);
       if (audioOk) {
         savedNote += " 🔊 원음 보관 (7일).";
-        // currentData 에도 음원 ID 박아둠 (재생 버튼이 즉시 인식)
         if (!currentData._meta) currentData._meta = {};
         currentData._meta.audio_record_id = recordId;
-        renderAll(currentData); // 음원 버튼 표시
+        renderAll(currentData);
       }
+    }
+    // 백엔드 KV 사본 저장 (사장님 관리자 대시보드용, 실패 silent)
+    if (recordId) {
+      const records = getAllRecords();
+      const justSaved = records.find((r) => r.id === recordId);
+      if (justSaved) saveRecordToBackend(justSaved);
     }
 
     statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo}${savedNote} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
@@ -2302,6 +2492,14 @@ document.getElementById("modal-audio").addEventListener("click", (e) => {
   if (e.target.id === "modal-audio") hideAudioModal();
 });
 
+// 관리자 통합 대시보드 (admin_key 있을 때만 헤더에 버튼 보임)
+document.getElementById("btn-admin").addEventListener("click", showAdminModal);
+document.getElementById("btn-admin-close").addEventListener("click", hideAdminModal);
+document.getElementById("btn-admin-refresh").addEventListener("click", fetchAndRenderAdminList);
+document.getElementById("modal-admin").addEventListener("click", (e) => {
+  if (e.target.id === "modal-admin") hideAdminModal();
+});
+
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);
 document.getElementById("btn-records-close").addEventListener("click", hideRecordsModal);
@@ -2351,6 +2549,7 @@ document.addEventListener("keydown", (e) => {
     hideEndSessionModal();
     hideRecordsModal();
     hideAudioModal();
+    hideAdminModal();
   }
 });
 
@@ -2371,6 +2570,7 @@ showEmpty();
 updateInputSummary();
 refreshUserDisplay();
 refreshRecordsCount();
+refreshAdminButton(); // admin_key 보유 시 👑 버튼 표시
 ensureUserOnFirstLoad();
 // 7일 이상 된 음원 자동 삭제 (백그라운드)
 purgeExpiredAudio().then((n) => {

@@ -159,8 +159,8 @@ app.use('*', (c, next) => {
       if (!origin) return null; // origin 헤더 없으면 (curl 등) 허용 안 함
       return allowed.includes(origin) ? origin : null;
     },
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-API-Key'],
+    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'X-API-Key', 'X-Admin-Key'],
   })(c, next);
 });
 
@@ -197,6 +197,19 @@ async function authMiddleware(c, next) {
 
 app.use('*', authMiddleware);
 
+// 관리자 인증 — 특정 라우트에만 적용 (라우트 정의 시 명시적으로 호출)
+async function requireAdmin(c) {
+  const expected = c.env.ADMIN_SECRET;
+  if (!expected) {
+    return c.json({ error: 'Admin endpoint not configured (ADMIN_SECRET missing)' }, 503);
+  }
+  const provided = c.req.header('X-Admin-Key');
+  if (provided !== expected) {
+    return c.json({ error: 'Admin auth required' }, 403);
+  }
+  return null; // 통과
+}
+
 // =====================================================================
 // /health
 // =====================================================================
@@ -204,9 +217,11 @@ app.get('/health', (c) => {
   return c.json({
     status: 'ok',
     openai_key_configured: !!c.env.OPENAI_API_KEY,
-    auth_method: 'origin', // Phase 1: Origin 화이트리스트
+    auth_method: 'origin',
     allowed_origins: getAllowedOrigins(c.env),
     legacy_secret_fallback: !!c.env.SHARED_SECRET,
+    admin_configured: !!c.env.ADMIN_SECRET,
+    records_storage: !!c.env.EMS_RECORDS ? 'kv' : 'none',
     service: 'EMS Companion API (Cloudflare Worker)',
   });
 });
@@ -396,6 +411,94 @@ app.post('/api/pipeline', async (c) => {
     return c.json({ transcribe: stt, structured });
   } catch (e) {
     return c.json({ error: `파이프라인 실패: ${e.message}` }, 500);
+  }
+});
+
+// =====================================================================
+// 출동 기록 KV 저장소 (관리자 통합 대시보드)
+//
+// 동료가 음성 처리 완료 시 자동으로 사본 저장 → 사장님(관리자)이 통합 조회.
+// KV key: record:{ISO_timestamp}_{shortId}  (시간 역순 정렬에 유리)
+// =====================================================================
+const REC_PREFIX = 'record:';
+
+// POST /api/records — 모든 사용자 (Origin 인증) — 출동 기록 사본 저장
+app.post('/api/records', async (c) => {
+  if (!c.env.EMS_RECORDS) {
+    return c.json({ error: 'KV storage not configured' }, 503);
+  }
+  let body;
+  try {
+    body = await c.req.json();
+  } catch (e) {
+    return c.json({ error: `JSON 파싱 실패: ${e.message}` }, 400);
+  }
+  if (!body || !body.id || !body.saved_at || !body.data) {
+    return c.json({ error: 'id, saved_at, data 필드 필수' }, 400);
+  }
+  const key = `${REC_PREFIX}${body.saved_at}_${body.id}`;
+  try {
+    await c.env.EMS_RECORDS.put(key, JSON.stringify(body));
+    return c.json({ ok: true, key });
+  } catch (e) {
+    return c.json({ error: `저장 실패: ${e.message}` }, 500);
+  }
+});
+
+// GET /api/records — 관리자만 — 모든 기록 조회 (페이징 지원)
+app.get('/api/records', async (c) => {
+  const adminFail = await requireAdmin(c);
+  if (adminFail) return adminFail;
+  if (!c.env.EMS_RECORDS) {
+    return c.json({ error: 'KV storage not configured' }, 503);
+  }
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '100', 10), 1000);
+  const cursor = c.req.query('cursor') || undefined;
+
+  try {
+    const listResult = await c.env.EMS_RECORDS.list({ prefix: REC_PREFIX, limit, cursor });
+    // 각 key 의 value 를 병렬로 가져옴
+    const records = await Promise.all(
+      listResult.keys.map(async (k) => {
+        const raw = await c.env.EMS_RECORDS.get(k.name);
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (_) { return null; }
+      })
+    );
+    // null 제거 + 시간 역순 정렬 (가장 최신이 위)
+    const sorted = records.filter(Boolean).sort((a, b) => (b.saved_at || '').localeCompare(a.saved_at || ''));
+    return c.json({
+      records: sorted,
+      count: sorted.length,
+      cursor: listResult.list_complete ? null : listResult.cursor,
+    });
+  } catch (e) {
+    return c.json({ error: `조회 실패: ${e.message}` }, 500);
+  }
+});
+
+// DELETE /api/records/:id — 관리자만 — 특정 기록 삭제
+app.delete('/api/records/:id', async (c) => {
+  const adminFail = await requireAdmin(c);
+  if (adminFail) return adminFail;
+  if (!c.env.EMS_RECORDS) {
+    return c.json({ error: 'KV storage not configured' }, 503);
+  }
+  const id = c.req.param('id');
+  if (!id) return c.json({ error: 'id 필수' }, 400);
+
+  try {
+    // record:{timestamp}_{id} key 를 찾아야 하므로 list 로 prefix 검색
+    const listResult = await c.env.EMS_RECORDS.list({ prefix: REC_PREFIX });
+    const matching = listResult.keys.filter((k) => k.name.endsWith(`_${id}`));
+    if (matching.length === 0) {
+      return c.json({ error: 'Record not found' }, 404);
+    }
+    await Promise.all(matching.map((k) => c.env.EMS_RECORDS.delete(k.name)));
+    return c.json({ ok: true, deleted: matching.length });
+  } catch (e) {
+    return c.json({ error: `삭제 실패: ${e.message}` }, 500);
   }
 });
 

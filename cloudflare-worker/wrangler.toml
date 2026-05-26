@@ -23,6 +23,13 @@ compatibility_date = "2026-05-01"
 directory = "./public"
 binding = "ASSETS"
 
+# KV namespace — 출동 기록 통합 저장소 (관리자 대시보드용)
+# 사장님이 `npx wrangler kv namespace create EMS_RECORDS` 로 생성 후
+# 출력된 id 를 아래에 채워주세요. (지금은 placeholder)
+[[kv_namespaces]]
+binding = "EMS_RECORDS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
 # 무료 티어 한도:
 #   - 10만 요청/일
 #   - 10ms CPU/요청 (외부 API 응답 대기는 CPU time 미계산)
