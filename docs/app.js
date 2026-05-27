@@ -491,10 +491,204 @@ function renderAll(data) {
   renderTimeline(data);
   renderSample(data);
   renderOpqrst(data);
+  renderPreKtas(data);         // Pre-KTAS 입력 도우미 (1차 고려사항 정리)
   renderQuality(data);
   renderMeta(data);
   renderTranscript(data);     // 옵션 C — STT 원본 표시
   refreshAudioButton();        // 옵션 B — 원음 버튼
+}
+
+// =====================================================================
+// Pre-KTAS 입력 도우미 (V1)
+//   - 우리 구조화 결과에서 Pre-KTAS 1차 고려사항(공통 7항목)을 정리해 표시
+//   - 1차 고려사항: 의식 · 호흡곤란 · 활력징후 · 발열 · 통증 · 출혈 · 사고기전
+//   - 17개 카테고리 매핑·5단계 등급 분류는 V1에 포함 안 함 (라이센스·책임 회피)
+//   - 시범 동료가 공식 앱 메뉴를 확인해 주면 V2에서 카테고리 후보 보강 예정
+// =====================================================================
+function extractPreKtasInputs(data) {
+  if (!data) return null;
+
+  // 시간순 정렬된 활력징후 (가장 최근이 0번)
+  const allVitals = (data.treatment_track || [])
+    .filter((t) => t && t.category === "vitals" && t.details)
+    .sort((a, b) => (b.time || "").localeCompare(a.time || ""));
+  const latest = allVitals[0] || null;
+  const det = (latest && latest.details) || {};
+
+  // 의식수준 — 우선순위: report.consciousness > GCS > AVPU
+  const consciousness = (() => {
+    const r = (data.report && data.report.consciousness) || "";
+    if (r && r.trim()) return r.trim();
+    if (det.gcs != null) return `GCS ${det.gcs}`;
+    if (det.ams) return `AVPU ${det.ams}`;
+    return null;
+  })();
+
+  // 호흡곤란 — KTAS 임계값(SpO2≤94, RR<12 또는 >24) 기반 자동 판단
+  const respiratory_distress = (() => {
+    if (det.spo2 != null && det.spo2 <= 94) {
+      return `의심 — SpO2 ${det.spo2}%`;
+    }
+    if (det.rr != null && (det.rr < 12 || det.rr > 24)) {
+      return `의심 — RR ${det.rr}/분`;
+    }
+    return null;
+  })();
+
+  // 발열 — 38.0°C 이상
+  const fever = (() => {
+    if (det.temp == null) return null;
+    if (det.temp >= 38.0) return `발열 — ${det.temp}°C`;
+    return `${det.temp}°C (정상)`;
+  })();
+
+  // 통증 — OPQRST.S (강도)
+  const pain = (data.opqrst && data.opqrst.S) || null;
+
+  // 출혈 의심 — transcript 또는 sample.S 에서 키워드 감지 (보수적, 발견 시만 표시)
+  const haystack = [
+    (data._meta && data._meta.transcript) || "",
+    (data.sample && data.sample.S) || "",
+    ...(data.patient_speech_track || []).map((s) => s.content || ""),
+  ].join(" ");
+  const bleedingKeywords = ["출혈", "토혈", "각혈", "혈변", "혈뇨", "실혈", "피가"];
+  const bleeding_suspect = bleedingKeywords.some((k) => haystack.includes(k))
+    ? `발화에서 키워드 감지`
+    : null;
+
+  // 사고 기전 — SAMPLE.E (Event)
+  const mechanism = (data.sample && data.sample.E) || null;
+
+  return {
+    chief_complaint: (data.report && data.report.chief_complaint) || null,
+    consciousness,
+    respiratory_distress,
+    vitals: latest ? { time: latest.time, ...det } : null,
+    fever,
+    pain,
+    bleeding_suspect,
+    mechanism,
+    vitals_count: allVitals.length,
+  };
+}
+
+function formatVitalsLine(v) {
+  if (!v) return "";
+  const parts = [];
+  if (v.bp) parts.push(`BP ${v.bp}`);
+  if (v.hr != null) parts.push(`HR ${v.hr}`);
+  if (v.rr != null) parts.push(`RR ${v.rr}`);
+  if (v.spo2 != null) parts.push(`SpO2 ${v.spo2}%`);
+  if (v.temp != null) parts.push(`체온 ${v.temp}°C`);
+  if (v.bst != null) parts.push(`BST ${v.bst}`);
+  return parts.join(", ");
+}
+
+function renderPreKtas(data) {
+  const card = document.getElementById("prektas-card");
+  const body = document.getElementById("prektas-body");
+  if (!card || !body) return;
+
+  const x = extractPreKtasInputs(data);
+  // 데이터가 의미 있는 게 하나라도 있어야 카드 표시
+  const hasAny =
+    x &&
+    (x.chief_complaint ||
+      x.consciousness ||
+      x.respiratory_distress ||
+      x.vitals ||
+      x.pain ||
+      x.bleeding_suspect ||
+      x.mechanism);
+  if (!hasAny) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+
+  const row = (label, value, hint) => {
+    if (!value) return "";
+    const hintHtml = hint
+      ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 ml-1">${escapeHtml(hint)}</span>`
+      : "";
+    return `
+      <div class="flex items-start gap-3 py-2 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+        <span class="w-24 text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-0.5">${escapeHtml(label)}</span>
+        <span class="text-sm text-slate-900 dark:text-slate-100 flex-1 leading-relaxed">${escapeHtml(value)}${hintHtml}</span>
+      </div>
+    `;
+  };
+
+  const vitalsLine = x.vitals ? formatVitalsLine(x.vitals) : "";
+  const vitalsHint = x.vitals && x.vitals_count > 1
+    ? `(가장 최근 측정, ${x.vitals_count}회 기록됨)`
+    : x.vitals && x.vitals.time
+    ? `(${x.vitals.time})`
+    : "";
+
+  body.innerHTML =
+    row("주증상", x.chief_complaint) +
+    row("의식수준", x.consciousness) +
+    row("호흡곤란", x.respiratory_distress) +
+    row("활력징후", vitalsLine, vitalsHint) +
+    row("발열 여부", x.fever) +
+    row("통증 점수", x.pain) +
+    row("출혈 의심", x.bleeding_suspect) +
+    row("사고 기전", x.mechanism);
+}
+
+function buildPreKtasText(data) {
+  const x = extractPreKtasInputs(data);
+  if (!x) return "";
+  const lines = [];
+  lines.push("[Pre-KTAS 입력 도우미]");
+  if (x.chief_complaint) lines.push(`주증상: ${x.chief_complaint}`);
+  lines.push("");
+  lines.push("[1차 고려사항]");
+  if (x.consciousness) lines.push(`· 의식수준: ${x.consciousness}`);
+  if (x.respiratory_distress) lines.push(`· 호흡곤란: ${x.respiratory_distress}`);
+  if (x.vitals) {
+    const line = formatVitalsLine(x.vitals);
+    if (line) lines.push(`· 활력징후: ${line}${x.vitals.time ? ` (${x.vitals.time})` : ""}`);
+  }
+  if (x.fever) lines.push(`· 발열: ${x.fever}`);
+  if (x.pain) lines.push(`· 통증 점수: ${x.pain}`);
+  if (x.bleeding_suspect) lines.push(`· 출혈 의심: ${x.bleeding_suspect}`);
+  if (x.mechanism) lines.push(`· 사고 기전: ${x.mechanism}`);
+  lines.push("");
+  lines.push("※ 카테고리·등급 분류는 공식 Pre-KTAS 앱에서 본인이 직접 판단하세요.");
+  return lines.join("\n");
+}
+
+async function copyPreKtasInputs() {
+  if (!currentData) {
+    showToast("결과 데이터가 없습니다.", "warning");
+    return;
+  }
+  const text = buildPreKtasText(currentData);
+  if (!text) {
+    showToast("Pre-KTAS 입력 자료가 부족합니다.", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("✓ Pre-KTAS 입력값을 복사했습니다.", "success");
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast("✓ Pre-KTAS 입력값을 복사했습니다.", "success");
+    } catch (e2) {
+      showToast("복사 실패. 화면 텍스트를 수동 선택해 주세요.", "error");
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
 }
 
 // 빈 데이터 감지 — 의료 정보가 거의 없으면 경고 배너 표시
@@ -2779,6 +2973,9 @@ document.getElementById("modal-unsupported").addEventListener("click", (e) => {
 
 // 처리 중 취소 버튼 (AbortController)
 document.getElementById("btn-process-cancel").addEventListener("click", cancelProcess);
+
+// Pre-KTAS 입력 도우미 — 복사 버튼
+document.getElementById("btn-prektas-copy").addEventListener("click", copyPreKtasInputs);
 
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);

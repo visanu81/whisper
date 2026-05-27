@@ -677,6 +677,23 @@
       </section>
     </div>
 
+    <!-- Pre-KTAS 입력 도우미 (V1 — 1차 고려사항 정리만, 카테고리·등급 분류 X) -->
+    <section id="prektas-card" class="hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
+      <div class="flex items-start justify-between mb-3 gap-2 flex-wrap">
+        <div class="flex-1 min-w-0">
+          <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">🩺 Pre-KTAS 입력 도우미</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+            공식 Pre-KTAS 앱에 입력할 <b>1차 고려사항</b>을 정리합니다.
+            <span class="text-amber-700 dark:text-amber-300">카테고리·등급 분류는 본인이 직접 판단하세요.</span>
+          </p>
+        </div>
+        <button id="btn-prektas-copy" class="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition" title="Pre-KTAS 앱에 붙여넣기 좋은 형식으로 복사">
+          📋 복사
+        </button>
+      </div>
+      <div id="prektas-body" class="text-sm"></div>
+    </section>
+
     <!-- 품질 평가 -->
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <h2 class="text-lg font-bold text-slate-900 mb-4">🔍 변환 품질 평가</h2>
