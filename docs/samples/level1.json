@@ -227,6 +227,17 @@
     "hospital": "OO대학교병원 응급실",
     "handover": "62세 남성, 30분 전 발생한 압박성 흉통, 발한 동반. 활력징후 안정적, 산소 5리터 투여 중, 정맥로 확보 상태. 과거력 고혈압, 당뇨, 협심증 의증."
   },
+  "prektas_hint": {
+    "primary_category": "심혈관",
+    "confidence": "high",
+    "rationale": "압박성 흉통 + 발한 + 고혈압·당뇨 기왕력"
+  },
+  "transport": {
+    "onscene_end": "14:48",
+    "transport_start": "14:50",
+    "hospital_arrival": "15:10",
+    "handover_complete": "15:15"
+  },
   "quality_assessment": {
     "hallucination_suspected": [],
     "omission_suspected": [],

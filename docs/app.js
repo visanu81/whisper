@@ -560,6 +560,16 @@ function extractPreKtasInputs(data) {
   // 사고 기전 — SAMPLE.E (Event)
   const mechanism = (data.sample && data.sample.E) || null;
 
+  // V2: 백엔드 LLM 이 추정한 카테고리 후보 (있을 수도 없을 수도)
+  const hint = data && data.prektas_hint;
+  const category_hint = (hint && hint.primary_category)
+    ? {
+        category: hint.primary_category,
+        confidence: hint.confidence || null,
+        rationale: hint.rationale || null,
+      }
+    : null;
+
   return {
     chief_complaint: (data.report && data.report.chief_complaint) || null,
     consciousness,
@@ -570,6 +580,7 @@ function extractPreKtasInputs(data) {
     bleeding_suspect,
     mechanism,
     vitals_count: allVitals.length,
+    category_hint,
   };
 }
 
@@ -627,6 +638,31 @@ function renderPreKtas(data) {
     ? `(${x.vitals.time})`
     : "";
 
+  // V2 — 카테고리 후보 (있는 경우만, "참고용 추정" 라벨 강조)
+  let hintHtml = "";
+  if (x.category_hint) {
+    const c = x.category_hint;
+    const confColor = c.confidence === "high" ? "text-emerald-600 dark:text-emerald-400"
+                    : c.confidence === "medium" ? "text-amber-600 dark:text-amber-400"
+                    : "text-slate-500";
+    const confLabel = c.confidence === "high" ? "신뢰도 높음"
+                    : c.confidence === "medium" ? "신뢰도 보통"
+                    : c.confidence === "low" ? "신뢰도 낮음"
+                    : "신뢰도 미상";
+    hintHtml = `
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+          🤖 카테고리 후보 <span class="text-amber-700 dark:text-amber-300">(AI 참고용 추정 — 본인 판단 필수)</span>
+        </p>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span class="text-base font-bold text-slate-900 dark:text-slate-100">${escapeHtml(c.category)}</span>
+          <span class="text-[11px] ${confColor}">[${escapeHtml(confLabel)}]</span>
+        </div>
+        ${c.rationale ? `<p class="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-snug">근거: ${escapeHtml(c.rationale)}</p>` : ""}
+      </div>
+    `;
+  }
+
   body.innerHTML =
     row("주증상", x.chief_complaint) +
     row("의식수준", x.consciousness) +
@@ -635,7 +671,8 @@ function renderPreKtas(data) {
     row("발열 여부", x.fever) +
     row("통증 점수", x.pain) +
     row("출혈 의심", x.bleeding_suspect) +
-    row("사고 기전", x.mechanism);
+    row("사고 기전", x.mechanism) +
+    hintHtml;
 }
 
 function buildPreKtasText(data) {
@@ -656,6 +693,15 @@ function buildPreKtasText(data) {
   if (x.pain) lines.push(`· 통증 점수: ${x.pain}`);
   if (x.bleeding_suspect) lines.push(`· 출혈 의심: ${x.bleeding_suspect}`);
   if (x.mechanism) lines.push(`· 사고 기전: ${x.mechanism}`);
+
+  if (x.category_hint) {
+    lines.push("");
+    lines.push("[AI 추정 카테고리 — 참고용]");
+    const c = x.category_hint;
+    lines.push(`· ${c.category} (${c.confidence || "신뢰도 미상"})`);
+    if (c.rationale) lines.push(`  근거: ${c.rationale}`);
+  }
+
   lines.push("");
   lines.push("※ 카테고리·등급 분류는 공식 Pre-KTAS 앱에서 본인이 직접 판단하세요.");
   return lines.join("\n");
@@ -785,13 +831,49 @@ function extractQIMetrics(data) {
 
   const painText = (data.opqrst && data.opqrst.S) || null;
 
+  // V2 — 백엔드 LLM 이 추출한 이송 시각들 (발화에 명시된 경우만)
+  const transport = (data && data.transport) || {};
+  const onsceneEnd = transport.onscene_end || null;
+  const transportStart = transport.transport_start || null;
+  const hospitalArrival = transport.hospital_arrival || null;
+  const handoverComplete = transport.handover_complete || null;
+
+  const onsceneEndMarker = onsceneEnd
+    ? { time: onsceneEnd, what: "현장 평가/처치 종료" }
+    : null;
+  const transportStartMarker = transportStart
+    ? { time: transportStart, what: "이송 출발" }
+    : null;
+  const hospitalArrivalMarker = hospitalArrival
+    ? { time: hospitalArrival, what: "병원 도착" }
+    : null;
+  const handoverCompleteMarker = handoverComplete
+    ? { time: handoverComplete, what: "의료진 인계 완료" }
+    : null;
+
   const intervals = {
     contact_to_first_vitals: firstContact && firstVitals ? timeDiffMinutes(firstContact.time, firstVitals.time) : null,
     contact_to_first_proc:   firstContact && firstProc   ? timeDiffMinutes(firstContact.time, firstProc.time)   : null,
     contact_to_first_med:    firstContact && firstMed    ? timeDiffMinutes(firstContact.time, firstMed.time)    : null,
+    // V2 추가 간격들
+    onscene_total:           firstContact && onsceneEnd  ? timeDiffMinutes(firstContact.time, onsceneEnd) : null,
+    transport_duration:      transportStart && hospitalArrival ? timeDiffMinutes(transportStart, hospitalArrival) : null,
+    arrival_to_handover:     hospitalArrival && handoverComplete ? timeDiffMinutes(hospitalArrival, handoverComplete) : null,
   };
 
-  return { firstContact, firstVitals, firstProc, firstMed, trends, painText, intervals };
+  return {
+    firstContact,
+    firstVitals,
+    firstProc,
+    firstMed,
+    onsceneEnd: onsceneEndMarker,
+    transportStart: transportStartMarker,
+    hospitalArrival: hospitalArrivalMarker,
+    handoverComplete: handoverCompleteMarker,
+    trends,
+    painText,
+    intervals,
+  };
 }
 
 function renderQIMetrics(data) {
@@ -800,23 +882,37 @@ function renderQIMetrics(data) {
   if (!card || !body) return;
 
   const m = extractQIMetrics(data);
-  const hasAny = m && (m.firstContact || m.firstVitals || m.firstProc || m.firstMed || m.trends);
+  const hasAny =
+    m &&
+    (m.firstContact ||
+      m.firstVitals ||
+      m.firstProc ||
+      m.firstMed ||
+      m.onsceneEnd ||
+      m.transportStart ||
+      m.hospitalArrival ||
+      m.handoverComplete ||
+      m.trends);
   if (!hasAny) {
     card.classList.add("hidden");
     return;
   }
   card.classList.remove("hidden");
 
-  const markerRow = (label, marker, diffMin) => {
+  // hintRaw: 숫자(분) → "+X분", 문자열 → 그대로, null/0 → 표시 안 함
+  const markerRow = (label, marker, hintRaw) => {
     if (!marker) return "";
-    const diffText = diffMin != null
-      ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 ml-1">(+${diffMin}분)</span>`
+    let hintText = "";
+    if (typeof hintRaw === "number") hintText = `+${hintRaw}분`;
+    else if (typeof hintRaw === "string" && hintRaw) hintText = hintRaw;
+    const hintHtml = hintText
+      ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 ml-1">(${escapeHtml(hintText)})</span>`
       : "";
     return `
       <div class="flex items-start gap-2 py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
         <span class="w-20 text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-0.5">${escapeHtml(label)}</span>
         <span class="font-mono text-sm text-slate-900 dark:text-slate-100 shrink-0 w-12 pt-0.5">${escapeHtml(marker.time)}</span>
-        <span class="text-xs text-slate-600 dark:text-slate-400 flex-1 leading-snug">${escapeHtml(marker.what)}${diffText}</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 flex-1 leading-snug">${escapeHtml(marker.what)}${hintHtml}</span>
       </div>
     `;
   };
@@ -825,7 +921,12 @@ function renderQIMetrics(data) {
     markerRow("첫 환자 접촉", m.firstContact, null) +
     markerRow("첫 활력징후", m.firstVitals, m.intervals.contact_to_first_vitals) +
     markerRow("첫 처치", m.firstProc, m.intervals.contact_to_first_proc) +
-    markerRow("첫 약물", m.firstMed, m.intervals.contact_to_first_med);
+    markerRow("첫 약물", m.firstMed, m.intervals.contact_to_first_med) +
+    // V2 — 이송 단계 마커들 (백엔드가 발화에서 추출한 경우만)
+    markerRow("현장 종료", m.onsceneEnd, m.intervals.onscene_total != null ? `현장 ${m.intervals.onscene_total}분` : null) +
+    markerRow("이송 출발", m.transportStart, null) +
+    markerRow("병원 도착", m.hospitalArrival, m.intervals.transport_duration != null ? `이송 ${m.intervals.transport_duration}분` : null) +
+    markerRow("인계 완료", m.handoverComplete, m.intervals.arrival_to_handover != null ? `인계 ${m.intervals.arrival_to_handover}분` : null);
 
   let trendsHtml = "";
   if (m.trends && !m.trends.single) {
@@ -897,6 +998,20 @@ function buildQIText(data) {
   if (m.firstMed) {
     const extra = m.intervals.contact_to_first_med != null ? ` (+${m.intervals.contact_to_first_med}분)` : "";
     lines.push(`· 첫 약물: ${m.firstMed.time}${extra}  ${m.firstMed.what}`);
+  }
+  // V2 이송 단계 시각들
+  if (m.onsceneEnd) {
+    const extra = m.intervals.onscene_total != null ? ` (현장 ${m.intervals.onscene_total}분)` : "";
+    lines.push(`· 현장 종료: ${m.onsceneEnd.time}${extra}`);
+  }
+  if (m.transportStart) lines.push(`· 이송 출발: ${m.transportStart.time}`);
+  if (m.hospitalArrival) {
+    const extra = m.intervals.transport_duration != null ? ` (이송 ${m.intervals.transport_duration}분)` : "";
+    lines.push(`· 병원 도착: ${m.hospitalArrival.time}${extra}`);
+  }
+  if (m.handoverComplete) {
+    const extra = m.intervals.arrival_to_handover != null ? ` (인계 ${m.intervals.arrival_to_handover}분)` : "";
+    lines.push(`· 인계 완료: ${m.handoverComplete.time}${extra}`);
   }
 
   if (m.trends && !m.trends.single) {

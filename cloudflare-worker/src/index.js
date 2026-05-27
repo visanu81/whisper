@@ -63,6 +63,23 @@ const STRUCTURING_SYSTEM_PROMPT = `당신은 119 구급 출동 음성 변환 텍
     - 발화 주체가 불분명한 구간 → omission_suspected 에 기록
     - 자신 없는 추론이 들어간 항목 → hallucination_suspected 에 기록
     - 아무것도 없을 때만 빈 배열을 둘 것. 디폴트로 "없음"을 가정하지 말 것
+12. Pre-KTAS 카테고리 후보 추정 (prektas_hint):
+    - 주증상·진단·기왕력에 기반해 가장 가능성 높은 1개 카테고리만 추정
+    - 카테고리 명칭은 아래 임시 가이드에서 선택 (정확한 17개는 공식 매뉴얼 우선):
+      "심혈관" | "호흡기" | "신경" | "소화기" | "비뇨생식기" | "산부인과"
+      | "외상" | "환경" | "중독" | "정신과" | "안과" | "이비인후과"
+      | "피부" | "근골격" | "감염/발열" | "내분비/대사" | "알레르기" | "기타"
+    - confidence: 명확하면 "high", 애매하면 "medium", 추측 수준이면 "low", 모르면 null
+    - rationale: 한 줄로 근거 명시 (예: "흉통+좌측 방사통+발한")
+    - **자신 없으면 전체 prektas_hint 를 null 로 두는 게 안전**
+    - 이 항목은 어디까지나 **참고용 추정**임. 공식 분류는 구급대원이 직접.
+13. 이송 시각들 (transport):
+    - **발화에 명시된 경우만 추출**. 추정 금지.
+    - onscene_end: 현장 평가/처치 종료를 알리는 발화 시각
+    - transport_start: 이송 출발 시각
+    - hospital_arrival: 병원 도착 시각
+    - handover_complete: 의료진 인계 완료 시각
+    - 없는 항목은 null
 11. **반드시** 아래 JSON 스키마를 그대로 따를 것. 임의로 키를 추가하거나 빼지 말 것.
 
 [출력 JSON 스키마]
@@ -124,6 +141,17 @@ const STRUCTURING_SYSTEM_PROMPT = `당신은 119 구급 출동 음성 변환 텍
     "consciousness": 문자열 또는 null,
     "hospital": 문자열 또는 null,
     "handover": 문자열 또는 null
+  },
+  "prektas_hint": {
+    "primary_category": "심혈관" | "호흡기" | "신경" | "소화기" | "비뇨생식기" | "산부인과" | "외상" | "환경" | "중독" | "정신과" | "안과" | "이비인후과" | "피부" | "근골격" | "감염/발열" | "내분비/대사" | "알레르기" | "기타" 또는 null,
+    "confidence": "high" | "medium" | "low" 또는 null,
+    "rationale": "근거 한 줄" 또는 null
+  },
+  "transport": {
+    "onscene_end": "HH:MM" 또는 null,
+    "transport_start": "HH:MM" 또는 null,
+    "hospital_arrival": "HH:MM" 또는 null,
+    "handover_complete": "HH:MM" 또는 null
   },
   "quality_assessment": {
     "hallucination_suspected": ["의심 구간 설명", ...],

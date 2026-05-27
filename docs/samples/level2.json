@@ -373,6 +373,17 @@
     "hospital": "OO병원",
     "handover": "58세 여성, 인슐린 의존성 당뇨 환자, 점심 결식 후 발생한 저혈당, 초기 혈당 38, 50% 포도당 50ml 투여 후 92로 회복, 의식 V에서 A로 호전. 산소 10리터 투여 중, 정맥로 확보 상태. 보호자 동행."
   },
+  "prektas_hint": {
+    "primary_category": "내분비/대사",
+    "confidence": "high",
+    "rationale": "인슐린 의존성 당뇨 + 점심 결식 + 의식저하 + BST 38"
+  },
+  "transport": {
+    "onscene_end": "15:25",
+    "transport_start": "15:27",
+    "hospital_arrival": "15:48",
+    "handover_complete": "15:53"
+  },
   "quality_assessment": {
     "hallucination_suspected": [],
     "omission_suspected": [],
