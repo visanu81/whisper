@@ -187,6 +187,9 @@
         <button id="btn-records" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="저장된 출동 기록 보기">
           📂 기록 <span id="records-count" class="font-bold">(0)</span>
         </button>
+        <button id="btn-help" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="사용설명서 / FAQ">
+          ❓ 도움말
+        </button>
         <button id="btn-admin" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="관리자 모드 (PIN 입력 필요)">
           <span id="btn-admin-label">🔒 관리자</span>
         </button>
@@ -302,6 +305,198 @@
       <button id="btn-unsupported-ok" class="w-full px-4 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
         확인
       </button>
+    </div>
+  </div>
+
+  <!-- 사용설명서 (도움말) 모달 -->
+  <div id="modal-help" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+      <!-- 헤더 -->
+      <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">❓ 사용설명서</h3>
+        <button id="btn-help-close" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xl">✕</button>
+      </div>
+
+      <!-- 본문 -->
+      <div class="overflow-y-auto px-6 py-5 space-y-6 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+
+        <!-- 1. 시작 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">🎙️ 1. 시작하기</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>처음 접속 시 환영 모달에서 <b>본인 이름</b>을 입력합니다.</li>
+            <li>녹음 사용 시 브라우저가 <b>마이크 권한</b>을 묻습니다 → 허용.</li>
+            <li>거부했으면 헤더 자물쇠/aA 메뉴에서 다시 허용 후 새로고침.</li>
+          </ul>
+        </section>
+
+        <!-- 2. 녹음 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">📱 2. 음성 입력 (두 가지 방법)</h4>
+          <p class="mb-2"><b>A. 직접 녹음</b></p>
+          <ul class="list-disc list-inside space-y-1 ml-1 mb-3">
+            <li><b>● 녹음</b> 누르면 시작 (장갑 끼고도 누를 수 있게 큼)</li>
+            <li><b>⏸ 일시정지</b> / <b>▶ 재개</b> 로 중간 멈춤</li>
+            <li><b>■ 정지</b> 로 종료 → 미리듣기 가능</li>
+            <li><b>무음 자동 제거</b> 체크박스: STT 비용 절감</li>
+          </ul>
+          <p class="mb-2"><b>B. 파일 업로드</b></p>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>다른 앱(녹음기 등)에서 녹음한 파일 업로드</li>
+            <li>지원 형식: m4a · mp3 · wav · webm · mp4 · mpeg</li>
+          </ul>
+        </section>
+
+        <!-- 3. 처리 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">⚙️ 3. 처리 시작 (보통 30~60초)</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>입력 준비 후 <b>처리 시작</b> 버튼.</li>
+            <li>STT 변환 → 구조화 자동 진행.</li>
+            <li>잘못 눌렀거나 너무 오래 걸리면 <b>✕ 취소</b> 버튼으로 중단.</li>
+            <li>모델 기본 <code>gpt-4o</code> 권장 (실 출동은 mini 비추천).</li>
+          </ul>
+        </section>
+
+        <!-- 4. 결과 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">📋 4. 결과 화면 보기</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li><b>구급일지 핵심 요약</b>: 주증상·의식·이송병원·인계사항</li>
+            <li><b>통합 타임라인</b>: 환자 발화(왼쪽)와 처치(오른쪽)이 시간축으로 흐름. 모바일은 위→아래.</li>
+            <li><b>SAMPLE / OPQRST</b>: 임상 평가도구 항목별 추출</li>
+            <li><b>🩺 Pre-KTAS 입력 도우미</b>: 공식 앱 입력값 정리 (분류·등급은 본인 판단)</li>
+            <li><b>⏱️ QI 핵심 시각</b>: 첫 접촉·활력·처치·이송 시각 + 활력 추세 (↑↓→)</li>
+            <li><b>🔍 변환 품질 평가</b>: 환각·누락·용어오류 의심 구간</li>
+          </ul>
+        </section>
+
+        <!-- 5. 신뢰도 배지 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">🟢🟡🔴 5. AI 신뢰도 배지</h4>
+          <p class="mb-2">각 카드 헤더에 작은 배지가 붙습니다. 의미:</p>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>🟢 <b>높음</b>: 발화 명확, 그대로 사용 가능</li>
+            <li>🟡 <b>보통</b>: 일부 추정, 검토 권장</li>
+            <li>🔴 <b>낮음</b>: 검증 필수 — 이 카드부터 펼쳐 확인</li>
+          </ul>
+        </section>
+
+        <!-- 6. 검증·수정 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">✏️ 6. 검증·수정 (중요!)</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li><b>📄 원본 STT 텍스트</b> 카드 펼치기 → 변환된 텍스트 직접 보기</li>
+            <li>STT가 잘못 들은 단어 수정 (예: 약물명·수치)</li>
+            <li><b>💡 수정 후 다시 구조화</b> 누르면 LLM이 새 텍스트로 다시 분석</li>
+            <li><b>🔊 원음</b> 버튼으로 실제 발화와 비교</li>
+          </ul>
+        </section>
+
+        <!-- 7. 활용 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">💾 7. 결과 활용</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li><b>🔗 공유</b>: 카톡·문자·메일 (Web Share API)</li>
+            <li><b>📄 구급일지(텍스트)</b>: 별지5호서식 텍스트 + 클립보드</li>
+            <li><b>📄 구급일지(PDF)</b>: 별지5호서식 PDF 자동 채움 (개발 중)</li>
+            <li><b>📋 복사</b>: 요약을 클립보드에</li>
+            <li><b>JSON / Markdown</b>: 원본 데이터 다운로드</li>
+          </ul>
+        </section>
+
+        <!-- 8. 원음 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">🔊 8. 원음 보관 (7일 자동 삭제)</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>실제 음성 처리 시 원음이 이 폰에만 임시 저장됩니다.</li>
+            <li><b>🔊 원음</b> 버튼으로 재생 + transcript와 대조</li>
+            <li>7일 후 자동 삭제. 이전 즉시 삭제도 가능.</li>
+            <li>영구 보관하려면 <b>💾 원음 다운로드</b> 사용.</li>
+          </ul>
+        </section>
+
+        <!-- 9. 기록함 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">📂 9. 출동 기록함</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>처리한 출동이 자동 누적 저장됩니다 (이 폰의 브라우저).</li>
+            <li>헤더 <b>📂 기록</b> 버튼으로 과거 출동 조회·불러오기.</li>
+            <li>폰 바꾸실 때 <b>💾 백업 내보내기</b> → 새 폰에서 <b>📥 백업 복원</b>.</li>
+          </ul>
+        </section>
+
+        <!-- 10. 출동 종료 -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">🚨 10. 출동 종료</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1">
+            <li>결과 카드 마지막의 <b>🚨 출동 종료</b> 버튼으로 화면 정리.</li>
+            <li><b>💾 다운로드 후 종료</b> (추천): JSON+MD 저장 후 화면 초기화</li>
+            <li><b>🗑️ 그냥 삭제</b>: 다운로드 없이 초기화 (복구 불가)</li>
+          </ul>
+        </section>
+
+        <!-- 11. 주의사항 -->
+        <section class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <h4 class="text-base font-bold text-amber-900 dark:text-amber-200 mb-2">⚠️ 11. 반드시 지켜야 할 것</h4>
+          <ul class="list-disc list-inside space-y-1 ml-1 text-amber-900 dark:text-amber-100">
+            <li><b>진짜 환자 음성 사용 금지</b> (Phase 1.5 시범 단계). 본인·동료 목소리만.</li>
+            <li><b>AI 결과는 반드시 사람 검증.</b> 의료 데이터 책임이 무겁습니다.</li>
+            <li><b>개인정보 자동 추출 안 함.</b> 환자 이름·주소 등은 직접 작성.</li>
+            <li><b>응급의료법·개인정보보호법·통신비밀보호법</b> 항상 염두.</li>
+          </ul>
+        </section>
+
+        <!-- 12. FAQ -->
+        <section>
+          <h4 class="text-base font-bold text-slate-900 dark:text-slate-100 mb-2">❓ 12. 자주 묻는 질문</h4>
+          <dl class="space-y-3">
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 마이크 권한을 한 번 거부했는데요?</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. iOS Safari는 주소창 옆 「aA」 → 웹사이트 설정 → 마이크 → 허용. Android Chrome은 주소창 옆 🔒 → 권한 → 마이크 → 허용. 그 후 새로고침.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 결과가 이상해요</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. <b>📄 원본 STT 텍스트</b> 펼쳐서 직접 수정 → <b>💡 수정 후 다시 구조화</b>. 또는 <b>🔊 원음</b> 들으며 검증.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 인터넷 안 되면?</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. 녹음은 가능하지만 STT·구조화는 클라우드(OpenAI)가 필요해 불가. 신호 잡힌 후 파일 업로드로 처리.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 동료 기록도 볼 수 있나요?</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. 본인 폰 기록만 봅니다. 관리자는 별도 PIN으로 통합 조회 가능 (시범 운영자만).</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 모델 gpt-4o-mini 써도 되나요?</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. 데모·연습은 OK. <b>실 출동은 gpt-4o 권장</b>. mini는 미세한 추론·품질평가가 약합니다.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-800 dark:text-slate-200">Q. 처리가 30초 넘게 안 끝나요</dt>
+              <dd class="text-slate-600 dark:text-slate-400 mt-0.5">A. 5분 음성 기준 보통 30~60초. 그 이상이면 ✕ 취소 후 재시도. OpenAI 서버 혼잡 가능.</dd>
+            </div>
+          </dl>
+        </section>
+
+        <!-- 13. 문의 -->
+        <section class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h4 class="text-base font-bold text-blue-900 dark:text-blue-200 mb-2">📨 13. 문의·건의</h4>
+          <p class="text-blue-900 dark:text-blue-100">
+            기능 개선 · 버그 신고 · 시범 피드백 — 제작자에게 직접:<br/>
+            제작 <b>소방위 한경승</b><br/>
+            메일: <a href="mailto:visanu@gg.go.kr" class="underline decoration-dotted">visanu@gg.go.kr</a>
+          </p>
+        </section>
+
+      </div>
+
+      <!-- 푸터 -->
+      <div class="px-6 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
+        <span class="text-[11px] text-slate-400 dark:text-slate-500">EMS Companion · Phase 1.5 — 시범 준비</span>
+        <button id="btn-help-ok" class="px-4 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+          확인
+        </button>
+      </div>
     </div>
   </div>
 

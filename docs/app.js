@@ -3643,6 +3643,33 @@ document.getElementById("btn-prektas-copy").addEventListener("click", copyPreKta
 // QI 핵심 시각 & 추세 — 복사 버튼
 document.getElementById("btn-qi-copy").addEventListener("click", copyQIMetrics);
 
+// 사용설명서 (도움말) 모달
+function showHelpModal() {
+  const m = document.getElementById("modal-help");
+  if (!m) return;
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+function hideHelpModal() {
+  const m = document.getElementById("modal-help");
+  if (!m) return;
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+document.getElementById("btn-help").addEventListener("click", showHelpModal);
+document.getElementById("btn-help-close").addEventListener("click", hideHelpModal);
+document.getElementById("btn-help-ok").addEventListener("click", hideHelpModal);
+document.getElementById("modal-help").addEventListener("click", (e) => {
+  if (e.target.id === "modal-help") hideHelpModal();
+});
+// ESC 키로 도움말 닫기 (다른 모달은 각자 처리, 이건 그냥 도움말 전용)
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const m = document.getElementById("modal-help");
+    if (m && !m.classList.contains("hidden")) hideHelpModal();
+  }
+});
+
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);
 document.getElementById("btn-records-close").addEventListener("click", hideRecordsModal);
