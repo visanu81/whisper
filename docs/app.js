@@ -95,15 +95,17 @@ function adminHeaders(extra = {}) {
 //   - 활성:   "👑 관리자" (purple, 클릭 시 대시보드 모달)
 function refreshAdminButton() {
   const btn = document.getElementById("btn-admin");
-  const label = document.getElementById("btn-admin-label");
-  if (!btn || !label) return;
+  const emoji = document.getElementById("btn-admin-emoji");
+  if (!btn || !emoji) return;
+  // HTML 구조: <span id="btn-admin-emoji">🔒</span><span class="hidden sm:inline"> <span id="btn-admin-label">관리자</span></span>
+  // 모바일은 이모지만, 데스크탑은 "🔒 관리자". 라벨은 고정, 이모지·색상만 갱신.
   if (isAdmin()) {
-    label.textContent = "👑 관리자";
-    btn.className = "px-3 py-1.5 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 transition";
+    emoji.textContent = "👑";
+    btn.className = "px-2.5 sm:px-3 py-1.5 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 transition";
     btn.title = "모든 사용자 출동 통합 조회 (관리자 활성)";
   } else {
-    label.textContent = "🔒 관리자";
-    btn.className = "px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition";
+    emoji.textContent = "🔒";
+    btn.className = "px-2.5 sm:px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition";
     btn.title = "관리자 모드 활성화 (PIN 필요)";
   }
 }
