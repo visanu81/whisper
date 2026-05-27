@@ -392,6 +392,14 @@
       "OPQRST 미적용: 통증 주증상이 아님"
     ]
   },
+  "confidence": {
+    "chief_complaint": "high",
+    "sample_extraction": "medium",
+    "opqrst_extraction": null,
+    "vitals_extraction": "high",
+    "timeline_ordering": "medium",
+    "transport_extraction": "low"
+  },
   "_meta": {
     "model": "gpt-4o",
     "structure_elapsed_seconds": 36.18,

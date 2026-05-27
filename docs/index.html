@@ -621,8 +621,11 @@
 
     <!-- 출동 요약 카드 -->
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
-      <div class="flex items-start justify-between mb-4">
-        <h2 class="text-lg font-bold text-slate-900">📋 구급일지 핵심 요약</h2>
+      <div class="flex items-start justify-between mb-4 gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-lg font-bold text-slate-900">📋 구급일지 핵심 요약</h2>
+          <span id="badge-summary" class="confidence-badge"></span>
+        </div>
         <span id="meta-info" class="text-xs text-slate-400"></span>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -648,7 +651,10 @@
     <!-- 두 트랙 통합 타임라인 (이 프로젝트의 핵심 화면) -->
     <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-1 gap-2">
-        <h2 class="text-base md:text-lg font-bold text-slate-900">⏱️ 통합 타임라인</h2>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h2 class="text-base md:text-lg font-bold text-slate-900">⏱️ 통합 타임라인</h2>
+          <span id="badge-timeline" class="confidence-badge"></span>
+        </div>
         <div class="flex items-center gap-2 md:gap-3 text-[11px] md:text-xs flex-wrap">
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-400"></span>환자/보호자</span>
           <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span>처치·활력징후</span>
@@ -668,11 +674,17 @@
     <!-- SAMPLE / OPQRST -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">📝 SAMPLE 추출</h2>
+        <div class="flex items-center gap-2 flex-wrap mb-4">
+          <h2 class="text-lg font-bold text-slate-900">📝 SAMPLE 추출</h2>
+          <span id="badge-sample" class="confidence-badge"></span>
+        </div>
         <dl id="sample-list" class="space-y-2 text-sm"></dl>
       </section>
       <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">🎯 OPQRST 추출</h2>
+        <div class="flex items-center gap-2 flex-wrap mb-4">
+          <h2 class="text-lg font-bold text-slate-900">🎯 OPQRST 추출</h2>
+          <span id="badge-opqrst" class="confidence-badge"></span>
+        </div>
         <dl id="opqrst-list" class="space-y-2 text-sm"></dl>
       </section>
     </div>
@@ -681,7 +693,10 @@
     <section id="prektas-card" class="hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex items-start justify-between mb-3 gap-2 flex-wrap">
         <div class="flex-1 min-w-0">
-          <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">🩺 Pre-KTAS 입력 도우미</h2>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">🩺 Pre-KTAS 입력 도우미</h2>
+            <span id="badge-prektas" class="confidence-badge"></span>
+          </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
             공식 Pre-KTAS 앱에 입력할 <b>1차 고려사항</b>을 정리합니다.
             <span class="text-amber-700 dark:text-amber-300">카테고리·등급 분류는 본인이 직접 판단하세요.</span>
@@ -698,7 +713,10 @@
     <section id="qi-card" class="hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 md:p-6">
       <div class="flex items-start justify-between mb-3 gap-2 flex-wrap">
         <div class="flex-1 min-w-0">
-          <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">⏱️ QI 핵심 시각 & 추세</h2>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-base md:text-lg font-bold text-slate-900 dark:text-slate-100">⏱️ QI 핵심 시각 & 추세</h2>
+            <span id="badge-qi" class="confidence-badge"></span>
+          </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
             주요 의료 행위 시각 마커와 활력징후 변화 추세를 자동 추출합니다. <span class="text-amber-700 dark:text-amber-300">시각이 음성에 명시된 경우만 표시.</span>
           </p>

@@ -80,6 +80,19 @@ const STRUCTURING_SYSTEM_PROMPT = `당신은 119 구급 출동 음성 변환 텍
     - hospital_arrival: 병원 도착 시각
     - handover_complete: 의료진 인계 완료 시각
     - 없는 항목은 null
+14. 항목별 추출 신뢰도 (confidence) — 카드 단위로 표시:
+    - 6개 영역 각각 "high" | "medium" | "low" | null 로 평가
+    - high: 발화에서 명확히 들리고 의료 용어도 잘 인식됨
+    - medium: 일부 항목이 추정 또는 인식 어색
+    - low: 큰 누락·환각 가능성, 대원 검증 권장
+    - null: 해당 영역 데이터 자체가 없음 (예: 통증 없는 케이스의 OPQRST)
+    - 평가 기준 예:
+      · chief_complaint: 환자가 직접 호소한 주증상이 명확한가
+      · sample_extraction: SAMPLE 6항목 중 추출된 것의 발화 명확성
+      · opqrst_extraction: 통증 평가가 적절히 추출됐는가 (적용 케이스만)
+      · vitals_extraction: 활력징후 수치들이 명확히 발화됐는가
+      · timeline_ordering: 시간 발화 빈도와 시간순 정렬 자신감
+      · transport_extraction: 이송 단계 시각들의 명시성
 11. **반드시** 아래 JSON 스키마를 그대로 따를 것. 임의로 키를 추가하거나 빼지 말 것.
 
 [출력 JSON 스키마]
@@ -158,6 +171,14 @@ const STRUCTURING_SYSTEM_PROMPT = `당신은 119 구급 출동 음성 변환 텍
     "omission_suspected": ["누락 의심 구간 설명", ...],
     "terminology_errors": ["인식 오류 의심 단어/구간", ...],
     "notes": ["기타 메모 (예: 'OPQRST 미적용: 통증 주증상이 아님')", ...]
+  },
+  "confidence": {
+    "chief_complaint": "high" | "medium" | "low" 또는 null,
+    "sample_extraction": "high" | "medium" | "low" 또는 null,
+    "opqrst_extraction": "high" | "medium" | "low" 또는 null,
+    "vitals_extraction": "high" | "medium" | "low" 또는 null,
+    "timeline_ordering": "high" | "medium" | "low" 또는 null,
+    "transport_extraction": "high" | "medium" | "low" 또는 null
   }
 }
 

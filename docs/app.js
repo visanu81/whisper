@@ -497,6 +497,55 @@ function renderAll(data) {
   renderMeta(data);
   renderTranscript(data);     // 옵션 C — STT 원본 표시
   refreshAudioButton();        // 옵션 B — 원음 버튼
+  applyConfidenceBadges(data); // 각 카드 헤더에 신뢰도 배지
+}
+
+// =====================================================================
+// AI 추출 신뢰도 배지 — 각 카드 헤더에 한 개씩 부착
+//   - high   : 🟢 신뢰도 높음
+//   - medium : 🟡 신뢰도 보통
+//   - low    : 🔴 신뢰도 낮음 — 검증 권장
+//   - null   : 표시 안 함 (해당 영역 데이터 자체가 없거나 미평가)
+// =====================================================================
+function confidenceBadge(level) {
+  if (!level) return "";
+  const config = {
+    high: {
+      emoji: "🟢",
+      text: "신뢰도 높음",
+      cls: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+    },
+    medium: {
+      emoji: "🟡",
+      text: "신뢰도 보통",
+      cls: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+    },
+    low: {
+      emoji: "🔴",
+      text: "신뢰도 낮음 · 검증 권장",
+      cls: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
+    },
+  };
+  const c = config[level];
+  if (!c) return "";
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full border font-medium ${c.cls}" title="AI 추출 신뢰도 — quality_assessment 와 함께 검증 우선순위 판단에 사용">${c.emoji} ${escapeHtml(c.text)}</span>`;
+}
+
+function applyConfidenceBadges(data) {
+  const c = (data && data.confidence) || {};
+  const mapping = {
+    "badge-summary":  c.chief_complaint,
+    "badge-timeline": c.timeline_ordering,
+    "badge-sample":   c.sample_extraction,
+    "badge-opqrst":   c.opqrst_extraction,
+    "badge-prektas":  c.vitals_extraction,        // Pre-KTAS 카드는 1차 고려사항 = 활력징후 신뢰도 영향 큼
+    "badge-qi":       c.transport_extraction,     // QI 카드는 이송 단계 시각 추출 신뢰도 핵심
+  };
+  for (const [id, level] of Object.entries(mapping)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.innerHTML = confidenceBadge(level);
+  }
 }
 
 // =====================================================================

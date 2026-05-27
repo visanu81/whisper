@@ -243,6 +243,14 @@
     "omission_suspected": [],
     "terminology_errors": []
   },
+  "confidence": {
+    "chief_complaint": "high",
+    "sample_extraction": "high",
+    "opqrst_extraction": "high",
+    "vitals_extraction": "high",
+    "timeline_ordering": "high",
+    "transport_extraction": "medium"
+  },
   "_meta": {
     "model": "gpt-4o",
     "structure_elapsed_seconds": 20.41,
