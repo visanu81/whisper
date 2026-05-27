@@ -226,6 +226,108 @@ async function saveRecordToBackend(record) {
 //   - 헤더의 "👤 ..." 클릭으로 변경 가능
 //   - 다운로드 파일명·결과 _meta 에 사용자명 포함
 // =====================================================================
+// =====================================================================
+// 공통 UI 유틸리티 — alert / window.prompt 대체용
+//   - showToast: 화면 하단에 잠시 떴다 사라지는 메시지
+//   - openUsernameModal / showMicPermissionHelp / showUnsupportedModal
+// =====================================================================
+function showToast(message, type = "info", duration = 3000) {
+  const container = document.getElementById("toast-container");
+  if (!container) {
+    console.warn("[toast] container 없음:", message);
+    return;
+  }
+  const colors = {
+    info:    "bg-slate-800 text-white",
+    success: "bg-emerald-600 text-white",
+    warning: "bg-amber-500 text-white",
+    error:   "bg-rose-600 text-white",
+  };
+  const cls = colors[type] || colors.info;
+  const toast = document.createElement("div");
+  toast.className =
+    `pointer-events-auto px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium ${cls} ` +
+    `opacity-0 translate-y-2 transition-all duration-300 max-w-[min(90vw,400px)] text-center`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.classList.remove("opacity-0", "translate-y-2");
+    toast.classList.add("opacity-100", "translate-y-0");
+  });
+  setTimeout(() => {
+    toast.classList.remove("opacity-100", "translate-y-0");
+    toast.classList.add("opacity-0", "translate-y-2");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// 사용자명 변경 모달 (window.prompt 대체)
+function openUsernameModal() {
+  const modal = document.getElementById("modal-username");
+  const input = document.getElementById("username-input");
+  const hint = document.getElementById("username-hint");
+  if (!modal || !input) return;
+  input.value = getUserName() || "";
+  hint.textContent = "";
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeUsernameModal() {
+  const modal = document.getElementById("modal-username");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function submitUsernameModal() {
+  const input = document.getElementById("username-input");
+  const hint = document.getElementById("username-hint");
+  const name = (input.value || "").trim();
+  if (!name) {
+    hint.textContent = "이름을 입력해주세요.";
+    input.focus();
+    return;
+  }
+  setUserName(name);
+  closeUsernameModal();
+  showToast("✓ 사용자 이름이 저장되었습니다.", "success");
+}
+
+// 마이크 권한 거부 안내 모달
+function showMicPermissionHelp() {
+  const modal = document.getElementById("modal-mic-help");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function hideMicPermissionHelp() {
+  const modal = document.getElementById("modal-mic-help");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+// 미지원 브라우저 안내 모달
+function showUnsupportedModal() {
+  const modal = document.getElementById("modal-unsupported");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function hideUnsupportedModal() {
+  const modal = document.getElementById("modal-unsupported");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+// =====================================================================
+// 사용자명 (저장/표시)
+// =====================================================================
 function getUserName() {
   return localStorage.getItem("emsUserName") || "";
 }
@@ -249,13 +351,8 @@ function refreshUserDisplay() {
 }
 
 function promptUserName() {
-  const current = getUserName();
-  const input = window.prompt(
-    "사용자 이름을 입력하세요\n(예: 동두천소방서 김OO 소방위)\n\n다운로드 파일·구조화 결과에 표기됩니다.",
-    current
-  );
-  if (input === null) return; // 취소 — 기존값 유지
-  setUserName(input);
+  // 기존 window.prompt → 디자인 모달로 통일
+  openUsernameModal();
 }
 
 // =====================================================================
@@ -290,8 +387,12 @@ function completeOnboarding() {
   const input = document.getElementById("onboarding-name");
   const name = (input.value || "").trim();
   if (!name) {
-    alert("본인 이름을 입력해주세요.");
+    showToast("본인 이름을 입력해주세요.", "warning");
     input.focus();
+    input.classList.add("border-rose-500", "ring-2", "ring-rose-500");
+    setTimeout(() => {
+      input.classList.remove("border-rose-500", "ring-2", "ring-rose-500");
+    }, 1500);
     return;
   }
   setUserName(name);
@@ -2111,14 +2212,20 @@ function stopTimer() {
 
 async function startRecording() {
   if (!navigator.mediaDevices || !window.MediaRecorder) {
-    alert("이 브라우저는 녹음(MediaRecorder)을 지원하지 않습니다. Chrome/Edge 최신 버전을 사용해주세요.");
+    showUnsupportedModal();
     return;
   }
 
   try {
     recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
-    alert("마이크 권한이 거부되었거나 사용 불가합니다: " + (e.message || e));
+    // NotAllowedError(권한 거부), NotFoundError(마이크 없음) 등 — 사용자에겐 같은 화면
+    console.warn("getUserMedia 실패:", e.name, e.message);
+    if (e && e.name === "NotFoundError") {
+      showToast("마이크 장치를 찾을 수 없습니다.", "error", 4000);
+    } else {
+      showMicPermissionHelp();
+    }
     return;
   }
 
@@ -2445,22 +2552,29 @@ async function removeSilenceFromBlob(blob) {
   }
 }
 
+// 진행 중 fetch 를 중단시키기 위한 컨트롤러 (취소 버튼용)
+let _processController = null;
+
 async function processAudio() {
   const modelSelect = document.getElementById("model-select");
   const btn = document.getElementById("btn-process");
   const statusEl = document.getElementById("process-status");
   const statusText = document.getElementById("process-status-text");
+  const cancelBtn = document.getElementById("btn-process-cancel");
   const autoVad = document.getElementById("auto-vad").checked;
 
   const input = getActiveInput();
   if (!input) {
-    alert("녹음을 하거나 파일을 선택해주세요.");
+    showToast("녹음을 하거나 파일을 선택해주세요.", "warning");
     return;
   }
 
   // UI 잠금
   btn.disabled = true;
   statusEl.classList.remove("hidden");
+  statusEl.classList.add("flex");
+  if (cancelBtn) cancelBtn.classList.remove("hidden");
+  _processController = new AbortController();
 
   let uploadBlob = input.blob;
   let uploadFilename = input.filename;
@@ -2497,6 +2611,7 @@ async function processAudio() {
       method: "POST",
       headers: authHeaders(),
       body: form,
+      signal: _processController ? _processController.signal : undefined,
     });
 
     if (!res.ok) {
@@ -2547,10 +2662,23 @@ async function processAudio() {
 
     statusText.innerHTML = `<span class="text-emerald-600">✓ 완료 (${elapsed}초).${vadInfo}${savedNote} 화면이 입력한 음성의 결과로 업데이트됐습니다.</span>`;
   } catch (e) {
-    console.error(e);
-    statusText.innerHTML = `<span class="text-rose-600">✗ 실패: ${escapeHtml(e.message || String(e))}</span>`;
+    if (e && e.name === "AbortError") {
+      statusText.innerHTML = `<span class="text-slate-500">취소됨.</span>`;
+      showToast("처리가 취소되었습니다.", "info");
+    } else {
+      console.error(e);
+      statusText.innerHTML = `<span class="text-rose-600">✗ 실패: ${escapeHtml(e.message || String(e))}</span>`;
+    }
   } finally {
     btn.disabled = false;
+    if (cancelBtn) cancelBtn.classList.add("hidden");
+    _processController = null;
+  }
+}
+
+function cancelProcess() {
+  if (_processController) {
+    _processController.abort();
   }
 }
 
@@ -2622,6 +2750,35 @@ document.getElementById("admin-pin-input").addEventListener("keydown", (e) => {
 document.getElementById("modal-admin-pin").addEventListener("click", (e) => {
   if (e.target.id === "modal-admin-pin") hideAdminPinModal();
 });
+
+// 사용자명 변경 모달 (window.prompt 대체)
+document.getElementById("btn-username-close").addEventListener("click", closeUsernameModal);
+document.getElementById("btn-username-cancel").addEventListener("click", closeUsernameModal);
+document.getElementById("btn-username-save").addEventListener("click", submitUsernameModal);
+document.getElementById("username-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitUsernameModal();
+  if (e.key === "Escape") closeUsernameModal();
+});
+document.getElementById("modal-username").addEventListener("click", (e) => {
+  if (e.target.id === "modal-username") closeUsernameModal();
+});
+
+// 마이크 권한 거부 안내 모달
+document.getElementById("btn-mic-help-close").addEventListener("click", hideMicPermissionHelp);
+document.getElementById("btn-mic-help-reload").addEventListener("click", () => window.location.reload());
+document.getElementById("modal-mic-help").addEventListener("click", (e) => {
+  if (e.target.id === "modal-mic-help") hideMicPermissionHelp();
+});
+
+// 미지원 브라우저 안내 모달
+document.getElementById("btn-unsupported-close").addEventListener("click", hideUnsupportedModal);
+document.getElementById("btn-unsupported-ok").addEventListener("click", hideUnsupportedModal);
+document.getElementById("modal-unsupported").addEventListener("click", (e) => {
+  if (e.target.id === "modal-unsupported") hideUnsupportedModal();
+});
+
+// 처리 중 취소 버튼 (AbortController)
+document.getElementById("btn-process-cancel").addEventListener("click", cancelProcess);
 
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);

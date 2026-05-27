@@ -186,9 +186,6 @@
         <button id="btn-admin" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="관리자 모드 (PIN 입력 필요)">
           <span id="btn-admin-label">🔒 관리자</span>
         </button>
-        <button id="btn-end-session" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700 transition" title="현재 출동 데이터 백업 후 종료">
-          🚨 출동 종료
-        </button>
         <!-- 데모 메뉴 -->
         <div class="relative">
           <button id="btn-demo" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="시연용 데모 시나리오 보기">
@@ -208,6 +205,101 @@
       </div>
     </div>
   </header>
+
+  <!-- 토스트 컨테이너 (alert 대체용) -->
+  <div id="toast-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <!-- 사용자명 변경 모달 (prompt 대체) -->
+  <div id="modal-username" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">👤 사용자 이름</h3>
+        <button id="btn-username-close" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xl">✕</button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">
+        다운로드 파일과 출동 기록에 표시됩니다.
+      </p>
+      <input id="username-input" type="text" autocomplete="off"
+        class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-2"
+        placeholder="예: 동두천소방서 한경승 소방위" />
+      <p id="username-hint" class="text-xs text-rose-500 mb-3 min-h-[1em]"></p>
+      <div class="flex gap-2">
+        <button id="btn-username-cancel" class="flex-1 px-4 py-2 text-sm font-medium rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">
+          취소
+        </button>
+        <button id="btn-username-save" class="flex-1 px-4 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+          저장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 마이크 권한 거부 안내 모달 -->
+  <div id="modal-mic-help" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">🎤 마이크 권한이 필요합니다</h3>
+        <button id="btn-mic-help-close" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xl">✕</button>
+      </div>
+      <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">
+        브라우저가 마이크 사용을 차단했습니다. 아래 안내대로 허용 후 페이지를 새로고침하세요.
+      </p>
+
+      <div class="space-y-3 text-sm">
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+          <p class="font-semibold text-slate-900 dark:text-slate-100 mb-1">📱 iPhone (Safari)</p>
+          <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            주소창 왼쪽 <b>「가가」(aA)</b> 탭 → <b>웹사이트 설정</b> → <b>마이크</b> → <b>허용</b>
+          </p>
+        </div>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+          <p class="font-semibold text-slate-900 dark:text-slate-100 mb-1">📱 Android (Chrome)</p>
+          <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            주소창 왼쪽 <b>🔒 자물쇠</b> → <b>권한</b> → <b>마이크</b> → <b>허용</b>
+          </p>
+        </div>
+        <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+          <p class="font-semibold text-slate-900 dark:text-slate-100 mb-1">💻 데스크톱 (Chrome / Edge)</p>
+          <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            주소창 왼쪽 <b>🔒 자물쇠</b> → <b>사이트 설정</b> → <b>마이크</b> → <b>허용</b>
+          </p>
+        </div>
+        <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+          <p class="text-xs text-amber-900 dark:text-amber-200">
+            <b>💡 잘 모르겠으면:</b> 「파일 업로드」로 다른 앱(녹음기 등)에서 녹음한 파일을 올려도 됩니다.
+          </p>
+        </div>
+      </div>
+
+      <button id="btn-mic-help-reload" class="w-full mt-5 px-4 py-2.5 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+        🔄 페이지 새로고침
+      </button>
+    </div>
+  </div>
+
+  <!-- 미지원 브라우저 안내 모달 -->
+  <div id="modal-unsupported" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100">😢 녹음을 사용할 수 없습니다</h3>
+        <button id="btn-unsupported-close" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xl">✕</button>
+      </div>
+      <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">
+        이 브라우저는 마이크 녹음(MediaRecorder)을 지원하지 않습니다.
+      </p>
+      <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-1 mb-4 list-disc list-inside">
+        <li>iPhone: <b>Safari 14 이상</b></li>
+        <li>Android: <b>Chrome 49 이상</b></li>
+        <li>데스크톱: <b>Chrome · Edge · Firefox</b> 최신 버전</li>
+      </ul>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        대신 「파일 업로드」로 다른 앱에서 녹음한 파일을 올릴 수 있습니다.
+      </p>
+      <button id="btn-unsupported-ok" class="w-full px-4 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">
+        확인
+      </button>
+    </div>
+  </div>
 
   <!-- 첫 사용 환영 모달 -->
   <div id="modal-onboarding" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -486,11 +578,14 @@
         </button>
       </div>
 
-      <div id="process-status" class="mt-3 text-sm hidden">
-        <span class="inline-flex items-center gap-2">
-          <span class="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
-          <span id="process-status-text">처리 중…</span>
+      <div id="process-status" class="mt-3 text-sm hidden items-center justify-between gap-3">
+        <span class="inline-flex items-center gap-2 min-w-0 flex-1">
+          <span class="inline-block w-3 h-3 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+          <span id="process-status-text" class="truncate">처리 중…</span>
         </span>
+        <button id="btn-process-cancel" class="hidden shrink-0 px-2 py-1 text-xs rounded bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition" title="진행 중인 처리를 취소합니다">
+          ✕ 취소
+        </button>
       </div>
     </section>
 
@@ -655,6 +750,16 @@
         <button id="btn-download-json" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">JSON</button>
         <button id="btn-download-md" class="px-3 py-1.5 text-sm font-medium rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition">Markdown</button>
       </div>
+    </section>
+
+    <!-- 출동 종료 — 결과 있을 때만 의미 있으므로 결과 영역 내부에 배치 -->
+    <section class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <p class="text-sm text-slate-600 dark:text-slate-300">
+        이 출동 처리가 끝났다면 다음 출동을 위해 화면을 정리하세요.
+      </p>
+      <button id="btn-end-session" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-rose-600 text-white hover:bg-rose-700 transition" title="현재 출동 데이터 백업 후 화면 초기화">
+        🚨 출동 종료
+      </button>
     </section>
 
     </div><!-- /#results-area -->
