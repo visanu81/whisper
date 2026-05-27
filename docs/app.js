@@ -2222,13 +2222,13 @@ async function exportEmsForm() {
     w.document.close();
   }
 
-  alert("구급활동일지 초안이 클립보드에 복사되었고 새 탭에 표시됐습니다.\nNEDIS·종이 양식에 옮겨 적으세요.");
+  showToast("✓ 구급활동일지 초안이 클립보드에 복사되었고 새 탭에 표시됐습니다. NEDIS·종이 양식에 옮겨 적으세요.", "success", 4500);
 }
 
 async function copyShareText(text, successMsg) {
   try {
     await navigator.clipboard.writeText(text);
-    alert(successMsg);
+    showToast(successMsg, "success");
   } catch (e) {
     // clipboard API 실패 (HTTP 환경 또는 권한 문제) → execCommand 폴백
     const ta = document.createElement("textarea");
@@ -2239,9 +2239,9 @@ async function copyShareText(text, successMsg) {
     ta.select();
     try {
       document.execCommand("copy");
-      alert(successMsg);
+      showToast(successMsg, "success");
     } catch (e2) {
-      alert(`복사 실패: ${e2.message}\n수동으로 화면의 텍스트를 선택해 복사해주세요.`);
+      showToast(`복사 실패: ${e2.message}. 화면 텍스트를 수동 선택해 복사해주세요.`, "error");
     } finally {
       document.body.removeChild(ta);
     }
