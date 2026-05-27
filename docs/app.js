@@ -492,6 +492,7 @@ function renderAll(data) {
   renderSample(data);
   renderOpqrst(data);
   renderPreKtas(data);         // Pre-KTAS 입력 도우미 (1차 고려사항 정리)
+  renderQIMetrics(data);       // QI 핵심 시각 & 활력징후 추세
   renderQuality(data);
   renderMeta(data);
   renderTranscript(data);     // 옵션 C — STT 원본 표시
@@ -683,6 +684,268 @@ async function copyPreKtasInputs() {
     try {
       document.execCommand("copy");
       showToast("✓ Pre-KTAS 입력값을 복사했습니다.", "success");
+    } catch (e2) {
+      showToast("복사 실패. 화면 텍스트를 수동 선택해 주세요.", "error");
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
+}
+
+// =====================================================================
+// QI 핵심 시각 & 활력징후 추세 (V1)
+//   - 시간이 명시 발화된 이벤트만 마커로 사용 (추정 시간 제외)
+//   - 추출 항목: 첫 환자 접촉 / 첫 활력징후 / 첫 처치 / 첫 약물
+//   - 활력징후 추세: 시간순 첫 측정 ↔ 가장 최근 측정 비교
+//   - 통증 점수: opqrst.S 텍스트 그대로 (LLM 이 "8 → 5" 형태로 추출)
+// =====================================================================
+
+// HH:MM 두 시각 사이 분 차이 (양수). 자정 넘기는 출동은 +24시간 보정.
+function timeDiffMinutes(t1, t2) {
+  if (!t1 || !t2) return null;
+  const toMin = (s) => {
+    const parts = s.split(":").map(Number);
+    if (parts.length !== 2 || parts.some(isNaN)) return null;
+    return parts[0] * 60 + parts[1];
+  };
+  const a = toMin(t1);
+  const b = toMin(t2);
+  if (a == null || b == null) return null;
+  let diff = b - a;
+  if (diff < 0) diff += 24 * 60;
+  return diff;
+}
+
+function extractQIMetrics(data) {
+  if (!data) return null;
+
+  const speech = data.patient_speech_track || [];
+  const treatments = data.treatment_track || [];
+  const timeline = data.integrated_timeline || [];
+
+  const firstWithTime = (arr, pred) =>
+    (arr || []).find((e) => e && e.time && pred(e)) || null;
+
+  // 첫 환자 접촉 — 환자/보호자 첫 발화, 없으면 timeline 의 첫 observation
+  const firstSpeech = firstWithTime(speech, () => true);
+  const firstObs = firstWithTime(timeline, (e) => e.type === "observation");
+  const firstContact = firstSpeech
+    ? { time: firstSpeech.time, what: `${firstSpeech.speaker || "환자"}: ${firstSpeech.content || ""}`.slice(0, 60) }
+    : firstObs
+    ? { time: firstObs.time, what: (firstObs.content || "").slice(0, 60) }
+    : null;
+
+  const firstVitalsEv = firstWithTime(treatments, (e) => e.category === "vitals" && e.details);
+  const firstVitals = firstVitalsEv ? { time: firstVitalsEv.time, what: firstVitalsEv.content || "활력징후 측정" } : null;
+
+  const firstProcEv = firstWithTime(treatments, (e) => e.category === "procedure");
+  const firstProc = firstProcEv ? { time: firstProcEv.time, what: firstProcEv.content || "처치" } : null;
+
+  const firstMedEv = firstWithTime(treatments, (e) => e.category === "medication");
+  const firstMed = firstMedEv ? { time: firstMedEv.time, what: firstMedEv.content || "약물 투여" } : null;
+
+  // 활력징후 추세 — 시간 있는 vitals 만, 오름차순 정렬
+  const allVitals = treatments
+    .filter((t) => t && t.category === "vitals" && t.details && t.time)
+    .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+  const parseSBP = (bp) => {
+    if (!bp || typeof bp !== "string") return null;
+    const n = parseInt(bp.split("/")[0], 10);
+    return isNaN(n) ? null : n;
+  };
+  const arrow = (a, b) => {
+    if (a == null || b == null) return "";
+    if (b > a) return "↑";
+    if (b < a) return "↓";
+    return "→";
+  };
+
+  let trends = null;
+  if (allVitals.length >= 2) {
+    const first = allVitals[0];
+    const last = allVitals[allVitals.length - 1];
+    const fd = first.details || {};
+    const ld = last.details || {};
+    trends = {
+      first_time: first.time,
+      last_time: last.time,
+      count: allVitals.length,
+      span_min: timeDiffMinutes(first.time, last.time),
+      bp:   { from: fd.bp,   to: ld.bp,   arrow: arrow(parseSBP(fd.bp), parseSBP(ld.bp)) },
+      hr:   { from: fd.hr,   to: ld.hr,   arrow: arrow(fd.hr, ld.hr) },
+      rr:   { from: fd.rr,   to: ld.rr,   arrow: arrow(fd.rr, ld.rr) },
+      spo2: { from: fd.spo2, to: ld.spo2, arrow: arrow(fd.spo2, ld.spo2) },
+      temp: { from: fd.temp, to: ld.temp, arrow: arrow(fd.temp, ld.temp) },
+      gcs:  { from: fd.gcs,  to: ld.gcs,  arrow: arrow(fd.gcs, ld.gcs) },
+    };
+  } else if (allVitals.length === 1) {
+    trends = { single: true, first_time: allVitals[0].time };
+  }
+
+  const painText = (data.opqrst && data.opqrst.S) || null;
+
+  const intervals = {
+    contact_to_first_vitals: firstContact && firstVitals ? timeDiffMinutes(firstContact.time, firstVitals.time) : null,
+    contact_to_first_proc:   firstContact && firstProc   ? timeDiffMinutes(firstContact.time, firstProc.time)   : null,
+    contact_to_first_med:    firstContact && firstMed    ? timeDiffMinutes(firstContact.time, firstMed.time)    : null,
+  };
+
+  return { firstContact, firstVitals, firstProc, firstMed, trends, painText, intervals };
+}
+
+function renderQIMetrics(data) {
+  const card = document.getElementById("qi-card");
+  const body = document.getElementById("qi-body");
+  if (!card || !body) return;
+
+  const m = extractQIMetrics(data);
+  const hasAny = m && (m.firstContact || m.firstVitals || m.firstProc || m.firstMed || m.trends);
+  if (!hasAny) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+
+  const markerRow = (label, marker, diffMin) => {
+    if (!marker) return "";
+    const diffText = diffMin != null
+      ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 ml-1">(+${diffMin}분)</span>`
+      : "";
+    return `
+      <div class="flex items-start gap-2 py-1.5 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
+        <span class="w-20 text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-0.5">${escapeHtml(label)}</span>
+        <span class="font-mono text-sm text-slate-900 dark:text-slate-100 shrink-0 w-12 pt-0.5">${escapeHtml(marker.time)}</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 flex-1 leading-snug">${escapeHtml(marker.what)}${diffText}</span>
+      </div>
+    `;
+  };
+
+  const markersHtml =
+    markerRow("첫 환자 접촉", m.firstContact, null) +
+    markerRow("첫 활력징후", m.firstVitals, m.intervals.contact_to_first_vitals) +
+    markerRow("첫 처치", m.firstProc, m.intervals.contact_to_first_proc) +
+    markerRow("첫 약물", m.firstMed, m.intervals.contact_to_first_med);
+
+  let trendsHtml = "";
+  if (m.trends && !m.trends.single) {
+    const t = m.trends;
+    const trendRow = (label, item, unit = "") => {
+      if (item.from == null && item.to == null) return "";
+      const fromText = item.from != null ? `${item.from}${unit}` : "—";
+      const toText = item.to != null ? `${item.to}${unit}` : "—";
+      const arrowColor = item.arrow === "↑" ? "text-rose-500"
+                       : item.arrow === "↓" ? "text-emerald-500"
+                       : "text-slate-400";
+      return `
+        <div class="flex items-center gap-2 py-1 text-xs">
+          <span class="w-12 text-slate-500 dark:text-slate-400 shrink-0">${escapeHtml(label)}</span>
+          <span class="font-mono">${escapeHtml(fromText)}</span>
+          <span class="${arrowColor} font-bold w-4 text-center">${item.arrow || "→"}</span>
+          <span class="font-mono">${escapeHtml(toText)}</span>
+        </div>
+      `;
+    };
+    trendsHtml = `
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <p class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+          📈 활력징후 추세
+          <span class="text-[10px] font-normal text-slate-400">(${t.count}회, ${escapeHtml(t.first_time)} → ${escapeHtml(t.last_time)}${t.span_min != null ? `, ${t.span_min}분` : ""})</span>
+        </p>
+        ${trendRow("BP",   t.bp)}
+        ${trendRow("HR",   t.hr)}
+        ${trendRow("RR",   t.rr)}
+        ${trendRow("SpO2", t.spo2, "%")}
+        ${trendRow("체온", t.temp, "°C")}
+        ${trendRow("GCS",  t.gcs)}
+      </div>
+    `;
+  } else if (m.trends && m.trends.single) {
+    trendsHtml = `
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+        📈 활력징후 1회만 측정됨 (${escapeHtml(m.trends.first_time)}) — 추세 비교 불가
+      </div>
+    `;
+  }
+
+  let painHtml = "";
+  if (m.painText) {
+    painHtml = `
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+        <p class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">💢 통증 점수</p>
+        <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">${escapeHtml(m.painText)}</p>
+      </div>
+    `;
+  }
+
+  body.innerHTML = `<div>${markersHtml}</div>${trendsHtml}${painHtml}`;
+}
+
+function buildQIText(data) {
+  const m = extractQIMetrics(data);
+  if (!m) return "";
+  const lines = ["[QI 핵심 시각 & 추세]", "", "[시간 마커]"];
+  if (m.firstContact) lines.push(`· 첫 환자 접촉: ${m.firstContact.time}  ${m.firstContact.what}`);
+  if (m.firstVitals) {
+    const extra = m.intervals.contact_to_first_vitals != null ? ` (+${m.intervals.contact_to_first_vitals}분)` : "";
+    lines.push(`· 첫 활력징후: ${m.firstVitals.time}${extra}  ${m.firstVitals.what}`);
+  }
+  if (m.firstProc) {
+    const extra = m.intervals.contact_to_first_proc != null ? ` (+${m.intervals.contact_to_first_proc}분)` : "";
+    lines.push(`· 첫 처치: ${m.firstProc.time}${extra}  ${m.firstProc.what}`);
+  }
+  if (m.firstMed) {
+    const extra = m.intervals.contact_to_first_med != null ? ` (+${m.intervals.contact_to_first_med}분)` : "";
+    lines.push(`· 첫 약물: ${m.firstMed.time}${extra}  ${m.firstMed.what}`);
+  }
+
+  if (m.trends && !m.trends.single) {
+    const t = m.trends;
+    lines.push("");
+    lines.push(`[활력징후 추세] ${t.count}회, ${t.first_time} → ${t.last_time}${t.span_min != null ? `, ${t.span_min}분 경과` : ""}`);
+    const tl = (label, item, unit = "") => {
+      if (item.from == null && item.to == null) return null;
+      return `· ${label}: ${item.from != null ? item.from : "—"}${unit} ${item.arrow || "→"} ${item.to != null ? item.to : "—"}${unit}`;
+    };
+    [
+      tl("BP",   t.bp),
+      tl("HR",   t.hr),
+      tl("RR",   t.rr),
+      tl("SpO2", t.spo2, "%"),
+      tl("체온", t.temp, "°C"),
+      tl("GCS",  t.gcs),
+    ].filter(Boolean).forEach((l) => lines.push(l));
+  }
+  if (m.painText) {
+    lines.push("");
+    lines.push(`[통증] ${m.painText}`);
+  }
+  return lines.join("\n");
+}
+
+async function copyQIMetrics() {
+  if (!currentData) {
+    showToast("결과 데이터가 없습니다.", "warning");
+    return;
+  }
+  const text = buildQIText(currentData);
+  if (!text) {
+    showToast("QI 추출 자료가 부족합니다.", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("✓ QI 핵심 시각을 복사했습니다.", "success");
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast("✓ QI 핵심 시각을 복사했습니다.", "success");
     } catch (e2) {
       showToast("복사 실패. 화면 텍스트를 수동 선택해 주세요.", "error");
     } finally {
@@ -2976,6 +3239,9 @@ document.getElementById("btn-process-cancel").addEventListener("click", cancelPr
 
 // Pre-KTAS 입력 도우미 — 복사 버튼
 document.getElementById("btn-prektas-copy").addEventListener("click", copyPreKtasInputs);
+
+// QI 핵심 시각 & 추세 — 복사 버튼
+document.getElementById("btn-qi-copy").addEventListener("click", copyQIMetrics);
 
 // 기록함
 document.getElementById("btn-records").addEventListener("click", showRecordsModal);
