@@ -2652,6 +2652,231 @@ async function exportEmsForm() {
   showToast("✓ 구급활동일지 초안이 클립보드에 복사되었고 새 탭에 표시됐습니다. NEDIS·종이 양식에 옮겨 적으세요.", "success", 4500);
 }
 
+// =====================================================================
+// 별지 제5호서식 PDF 자동 채움 (V1 — 핵심 좌표만)
+//
+// 작동 방식:
+//   1. docs/forms/ems-form-119-v5.pdf 를 pdf-lib 로 로드
+//   2. NanumGothic-Regular.ttf 폰트를 fontkit 으로 임베딩 (한국어)
+//   3. 좌표 매핑(FIELD_COORDS) 따라 텍스트/체크마크 그림
+//   4. 채워진 PDF 를 Blob 으로 다운로드
+//
+// 좌표 주의:
+//   - PDF 좌표는 좌하단(0,0), y 위로 증가
+//   - 모든 좌표는 첫 시도 기준 추정값 — 실 PDF 보면서 미세 조정 필요
+//   - V1 은 핵심 7영역 (시각·AVPU·활력·환자분류·주호소·이송기관·인수자) 만
+// =====================================================================
+const FIELD_COORDS = {
+  // 페이지 추정 사이즈 A4 (595 × 842) 기준. 실제는 page.getSize() 확인.
+  // [구급 출동 - 시각 영역, 좌측 상단]
+  call_time:       { x: 145, y: 755 }, // 신고 일시
+  dispatch_time:   { x: 165, y: 740 }, // 출동 시각
+  onscene_arrive:  { x: 165, y: 725 }, // 현장 도착
+  patient_contact: { x: 165, y: 710 }, // 환자 접촉
+  onscene_leave:   { x: 165, y: 685 }, // 현장 출발
+  hospital_arrive: { x: 165, y: 670 }, // 병원 도착
+  return_time:     { x: 165, y: 655 }, // 귀소 시각
+
+  // [환자 평가 - 의식상태]
+  ams1_time:       { x: 140, y: 525 },
+  ams1_A:          { x: 188, y: 525 },
+  ams1_V:          { x: 207, y: 525 },
+  ams1_P:          { x: 225, y: 525 },
+  ams1_U:          { x: 243, y: 525 },
+  ams2_time:       { x: 295, y: 525 },
+  ams2_A:          { x: 343, y: 525 },
+  ams2_V:          { x: 362, y: 525 },
+  ams2_P:          { x: 380, y: 525 },
+  ams2_U:          { x: 398, y: 525 },
+
+  // [활력 징후] 1차/2차 (y: 1차 482, 2차 467)
+  vitals1: { time: { x: 125, y: 482 }, bp: { x: 180, y: 482 }, hr: { x: 270, y: 482 }, rr: { x: 320, y: 482 }, temp: { x: 375, y: 482 }, spo2: { x: 420, y: 482 }, bst: { x: 480, y: 482 } },
+  vitals2: { time: { x: 125, y: 467 }, bp: { x: 180, y: 467 }, hr: { x: 270, y: 467 }, rr: { x: 320, y: 467 }, temp: { x: 375, y: 467 }, spo2: { x: 420, y: 467 }, bst: { x: 480, y: 467 } },
+
+  // [환자분류 LEVEL 1~5]
+  level1: { x: 120, y: 446 },
+  level2: { x: 180, y: 446 },
+  level3: { x: 240, y: 446 },
+  level4: { x: 300, y: 446 },
+  level5: { x: 360, y: 446 },
+  death:  { x: 437, y: 446 },
+
+  // [구급대원 평가소견 - 주 호소]
+  chief_complaint: { x: 115, y: 423 },
+
+  // [환자 이송 - 1차]
+  hospital1:       { x: 85,  y: 240 },
+  acceptor1_dr:    { x: 487, y: 250 }, // 의사
+  acceptor1_nurse: { x: 487, y: 240 }, // 간호사
+  acceptor1_emt:   { x: 487, y: 230 }, // 응급구조사
+};
+
+async function fillEmsFormPdf(data) {
+  if (!data) {
+    showToast("결과 데이터가 없습니다.", "warning");
+    return;
+  }
+  if (!window.PDFLib || !window.fontkit) {
+    showToast("PDF 라이브러리 로드 실패. 새로고침 후 다시 시도하세요.", "error", 5000);
+    return;
+  }
+
+  showToast("PDF 생성 중…", "info", 8000);
+
+  try {
+    const { PDFDocument, rgb } = window.PDFLib;
+
+    const [pdfBytes, fontBytes] = await Promise.all([
+      fetch("forms/ems-form-119-v5.pdf").then((r) => {
+        if (!r.ok) throw new Error("PDF 파일 로드 실패: " + r.status);
+        return r.arrayBuffer();
+      }),
+      fetch("forms/NanumGothic-Regular.ttf").then((r) => {
+        if (!r.ok) throw new Error("폰트 로드 실패: " + r.status);
+        return r.arrayBuffer();
+      }),
+    ]);
+
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    pdfDoc.registerFontkit(window.fontkit);
+    const koFont = await pdfDoc.embedFont(fontBytes);
+
+    const page = pdfDoc.getPages()[0];
+    const { width, height } = page.getSize();
+    console.log(`[PDF] 페이지 사이즈: ${width} × ${height} pt`);
+
+    // 헬퍼
+    const draw = (text, coord, size = 8.5) => {
+      if (text == null || text === "" || !coord) return;
+      try {
+        page.drawText(String(text), { x: coord.x, y: coord.y, size, font: koFont, color: rgb(0, 0, 0) });
+      } catch (e) {
+        console.warn(`drawText 실패 [${text}] @${coord.x},${coord.y}:`, e.message);
+      }
+    };
+    const check = (coord, size = 11) => {
+      if (!coord) return;
+      page.drawText("✓", { x: coord.x, y: coord.y, size, font: koFont, color: rgb(0, 0.35, 0) });
+    };
+
+    // ─────────────────────────────────────────────
+    // 데이터 추출
+    // ─────────────────────────────────────────────
+    const r = data.report || {};
+    const t = data.transport || {};
+    const hint = data.prektas_hint || {};
+    const treatments = (data.treatment_track || []).filter(Boolean);
+    const vitals = treatments
+      .filter((x) => x.category === "vitals" && x.details)
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    const amsRecords = treatments
+      .filter((x) => x.details && x.details.ams)
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+    // ─────────────────────────────────────────────
+    // 1. 시각 영역 — transport + integrated_timeline 의 첫/마지막 활용
+    // ─────────────────────────────────────────────
+    if (t.transport_start) draw(t.transport_start, FIELD_COORDS.dispatch_time);
+    if (t.hospital_arrival) draw(t.hospital_arrival, FIELD_COORDS.hospital_arrive);
+    if (t.onscene_end) draw(t.onscene_end, FIELD_COORDS.onscene_leave);
+    // 환자 접촉 — patient_speech_track 의 첫 시각 또는 첫 observation
+    const firstContactTime = (() => {
+      const sp = (data.patient_speech_track || []).find((s) => s && s.time);
+      if (sp) return sp.time;
+      const ob = (data.integrated_timeline || []).find((e) => e && e.time && e.type === "observation");
+      return ob ? ob.time : null;
+    })();
+    if (firstContactTime) draw(firstContactTime, FIELD_COORDS.patient_contact);
+
+    // ─────────────────────────────────────────────
+    // 2. 의식상태 AVPU 1·2차
+    // ─────────────────────────────────────────────
+    const amsBoxes1 = { A: FIELD_COORDS.ams1_A, V: FIELD_COORDS.ams1_V, P: FIELD_COORDS.ams1_P, U: FIELD_COORDS.ams1_U };
+    const amsBoxes2 = { A: FIELD_COORDS.ams2_A, V: FIELD_COORDS.ams2_V, P: FIELD_COORDS.ams2_P, U: FIELD_COORDS.ams2_U };
+    if (amsRecords[0]) {
+      if (amsRecords[0].time) draw(amsRecords[0].time, FIELD_COORDS.ams1_time);
+      const k = amsRecords[0].details.ams;
+      if (amsBoxes1[k]) check(amsBoxes1[k]);
+    }
+    if (amsRecords[1]) {
+      if (amsRecords[1].time) draw(amsRecords[1].time, FIELD_COORDS.ams2_time);
+      const k = amsRecords[1].details.ams;
+      if (amsBoxes2[k]) check(amsBoxes2[k]);
+    }
+
+    // ─────────────────────────────────────────────
+    // 3. 활력 징후 1·2차
+    // ─────────────────────────────────────────────
+    const drawVitalRow = (v, coords) => {
+      if (!v) return;
+      const d = v.details || {};
+      if (v.time) draw(v.time, coords.time);
+      if (d.bp) draw(d.bp, coords.bp);
+      if (d.hr != null) draw(String(d.hr), coords.hr);
+      if (d.rr != null) draw(String(d.rr), coords.rr);
+      if (d.temp != null) draw(String(d.temp), coords.temp);
+      if (d.spo2 != null) draw(String(d.spo2), coords.spo2);
+      if (d.bst != null) draw(String(d.bst), coords.bst);
+    };
+    drawVitalRow(vitals[0], FIELD_COORDS.vitals1);
+    drawVitalRow(vitals[1], FIELD_COORDS.vitals2);
+
+    // ─────────────────────────────────────────────
+    // 4. 환자분류 — Pre-KTAS 등급은 모름, 사장님 요청 시 V2 보강. V1은 비움.
+    //    (참고: prektas_hint 는 카테고리만 있음, 등급 없음)
+    // ─────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────
+    // 5. 주 호소 — 텍스트 (긴 경우 줄임)
+    // ─────────────────────────────────────────────
+    if (r.chief_complaint) {
+      const cc = String(r.chief_complaint).slice(0, 50);
+      draw(cc, FIELD_COORDS.chief_complaint, 8.5);
+    }
+
+    // ─────────────────────────────────────────────
+    // 6. 이송 기관 (1차)
+    // ─────────────────────────────────────────────
+    if (r.hospital) {
+      const hosp = String(r.hospital).slice(0, 28);
+      draw(hosp, FIELD_COORDS.hospital1, 8.5);
+    }
+
+    // ─────────────────────────────────────────────
+    // 7. 환자 인수자 — handover 텍스트에서 키워드 (단순)
+    // ─────────────────────────────────────────────
+    const handover = (r.handover || "").toLowerCase();
+    if (handover.includes("의사")) check(FIELD_COORDS.acceptor1_dr);
+    else if (handover.includes("간호사")) check(FIELD_COORDS.acceptor1_nurse);
+    else if (handover.includes("구조사")) check(FIELD_COORDS.acceptor1_emt);
+
+    // ─────────────────────────────────────────────
+    // 저장 & 다운로드
+    // ─────────────────────────────────────────────
+    const filledBytes = await pdfDoc.save();
+    const blob = new Blob([filledBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const userName = (getUserName() || "user").replace(/[\\/:*?"<>|\s]/g, "_");
+    a.href = url;
+    a.download = `구급활동일지_${userName}_${ts}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+    showToast(
+      `✓ PDF 다운로드 완료 (페이지 ${Math.round(width)}×${Math.round(height)}pt). 좌표 어긋나면 알려주세요.`,
+      "success",
+      6000
+    );
+  } catch (e) {
+    console.error("PDF 생성 실패:", e);
+    showToast("PDF 생성 실패: " + (e.message || String(e)), "error", 6000);
+  }
+}
+
 async function copyShareText(text, successMsg) {
   try {
     await navigator.clipboard.writeText(text);
@@ -3334,6 +3559,7 @@ document.getElementById("btn-download-md").addEventListener("click", downloadMar
 document.getElementById("btn-share").addEventListener("click", shareReport);
 document.getElementById("btn-copy").addEventListener("click", copyReport);
 document.getElementById("btn-ems-form").addEventListener("click", exportEmsForm);
+document.getElementById("btn-ems-form-pdf").addEventListener("click", () => fillEmsFormPdf(currentData));
 
 // 첫 사용 환영 모달
 document.getElementById("btn-onboarding-start").addEventListener("click", completeOnboarding);

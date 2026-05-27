@@ -25,6 +25,10 @@
 
   <!-- Tailwind CDN (Phase 1 MVP. 정식 빌드는 Phase 2에서.) -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- pdf-lib + fontkit — 별지5호서식 PDF 자동 채움용 -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
   <script>
     // 다크 모드: class 기반. JS 로 html.classList.toggle('dark')
     tailwind.config = { darkMode: 'class' };
@@ -789,8 +793,11 @@
         <button id="btn-share" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition" title="카톡·문자·메일 등으로 공유">
           🔗 공유
         </button>
-        <button id="btn-ems-form" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition" title="119 구급활동일지 (별지 제5호서식) 자동 추출">
-          📄 구급일지
+        <button id="btn-ems-form" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition" title="119 구급활동일지 (별지 제5호서식) 텍스트 추출 + 클립보드">
+          📄 구급일지(텍스트)
+        </button>
+        <button id="btn-ems-form-pdf" class="px-3 py-1.5 text-sm font-semibold rounded-md bg-emerald-700 text-white hover:bg-emerald-800 transition" title="119 구급활동일지 (별지 제5호서식) PDF 자동 채움">
+          📄 구급일지(PDF)
         </button>
         <button id="btn-play-audio" class="hidden px-3 py-1.5 text-sm font-medium rounded-md bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60 transition" title="원음 듣기 (7일 보관)">
           🔊 원음
