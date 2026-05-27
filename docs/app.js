@@ -2666,49 +2666,54 @@ async function exportEmsForm() {
 //   - 모든 좌표는 첫 시도 기준 추정값 — 실 PDF 보면서 미세 조정 필요
 //   - V1 은 핵심 7영역 (시각·AVPU·활력·환자분류·주호소·이송기관·인수자) 만
 // =====================================================================
+// 페이지 사이즈: 595 × 841 pt (pdfplumber 분석 확인)
+// y 좌표는 pdfplumber 추출 baseline 기준
 const FIELD_COORDS = {
-  // 페이지 추정 사이즈 A4 (595 × 842) 기준. 실제는 page.getSize() 확인.
-  // [구급 출동 - 시각 영역, 좌측 상단]
-  call_time:       { x: 145, y: 755 }, // 신고 일시
-  dispatch_time:   { x: 165, y: 740 }, // 출동 시각
-  onscene_arrive:  { x: 165, y: 725 }, // 현장 도착
-  patient_contact: { x: 165, y: 710 }, // 환자 접촉
-  onscene_leave:   { x: 165, y: 685 }, // 현장 출발
-  hospital_arrive: { x: 165, y: 670 }, // 병원 도착
-  return_time:     { x: 165, y: 655 }, // 귀소 시각
+  // [구급 출동 - 시각 영역] 좌측 상단, 텍스트는 모두 한글 라벨 옆 입력 자리
+  // 양식 분석: 신고~귀소 시각 행이 y=755→621 사이 균등 분포 (행 높이 약 18pt)
+  call_time:       { x: 145, y: 750 },
+  dispatch_time:   { x: 100, y: 731 },
+  onscene_arrive:  { x: 100, y: 712 },
+  patient_contact: { x: 100, y: 693 },
+  onscene_leave:   { x: 100, y: 657 },
+  hospital_arrive: { x: 100, y: 639 },
+  return_time:     { x: 100, y: 621 },
 
-  // [환자 평가 - 의식상태]
-  ams1_time:       { x: 140, y: 525 },
-  ams1_A:          { x: 188, y: 525 },
-  ams1_V:          { x: 207, y: 525 },
-  ams1_P:          { x: 225, y: 525 },
-  ams1_U:          { x: 243, y: 525 },
-  ams2_time:       { x: 295, y: 525 },
-  ams2_A:          { x: 343, y: 525 },
-  ams2_V:          { x: 362, y: 525 },
-  ams2_P:          { x: 380, y: 525 },
-  ams2_U:          { x: 398, y: 525 },
+  // [환자 평가 - 의식상태] pdfplumber: y baseline 483
+  // 양식: "1차 ( : )[ ]A [ ]V [ ]P [ ]U  2차 ( : )[ ]A [ ]V [ ]P [ ]U"
+  ams1_time:       { x: 122, y: 483 },
+  ams1_A:          { x: 167, y: 483 },
+  ams1_V:          { x: 184, y: 483 },
+  ams1_P:          { x: 200, y: 483 },
+  ams1_U:          { x: 217, y: 483 },
+  ams2_time:       { x: 257, y: 483 },
+  ams2_A:          { x: 302, y: 483 },
+  ams2_V:          { x: 319, y: 483 },
+  ams2_P:          { x: 335, y: 483 },
+  ams2_U:          { x: 352, y: 483 },
 
-  // [활력 징후] 1차/2차 (y: 1차 482, 2차 467)
-  vitals1: { time: { x: 125, y: 482 }, bp: { x: 180, y: 482 }, hr: { x: 270, y: 482 }, rr: { x: 320, y: 482 }, temp: { x: 375, y: 482 }, spo2: { x: 420, y: 482 }, bst: { x: 480, y: 482 } },
-  vitals2: { time: { x: 125, y: 467 }, bp: { x: 180, y: 467 }, hr: { x: 270, y: 467 }, rr: { x: 320, y: 467 }, temp: { x: 375, y: 467 }, spo2: { x: 420, y: 467 }, bst: { x: 480, y: 467 } },
+  // [활력 징후] 헤더(시각/혈압/맥박/호흡/체온/SpO2/혈당체크) y=449
+  // 1차/2차 데이터 행은 헤더 아래로 16pt 간격
+  vitals1: { time: { x: 100, y: 433 }, bp: { x: 161, y: 433 }, hr: { x: 213, y: 433 }, rr: { x: 253, y: 433 }, temp: { x: 296, y: 433 }, spo2: { x: 330, y: 433 }, bst: { x: 366, y: 433 } },
+  vitals2: { time: { x: 100, y: 417 }, bp: { x: 161, y: 417 }, hr: { x: 213, y: 417 }, rr: { x: 253, y: 417 }, temp: { x: 296, y: 417 }, spo2: { x: 330, y: 417 }, bst: { x: 366, y: 417 } },
 
-  // [환자분류 LEVEL 1~5]
-  level1: { x: 120, y: 446 },
-  level2: { x: 180, y: 446 },
-  level3: { x: 240, y: 446 },
-  level4: { x: 300, y: 446 },
-  level5: { x: 360, y: 446 },
-  death:  { x: 437, y: 446 },
+  // [환자분류 LEVEL 1~5] y baseline 413
+  // 양식: "[ ] LEVEL 1 [ ]LEVEL 2 ... ([ ]사망추정)"
+  level1: { x: 68,  y: 401 },
+  level2: { x: 113, y: 401 },
+  level3: { x: 157, y: 401 },
+  level4: { x: 201, y: 401 },
+  level5: { x: 245, y: 401 },
+  death:  { x: 311, y: 401 },
 
-  // [구급대원 평가소견 - 주 호소]
-  chief_complaint: { x: 115, y: 423 },
+  // [구급대원 평가소견 - 주 호소] y baseline 387 (라벨 "ㆍ주 호소:" 다음)
+  chief_complaint: { x: 113, y: 387 },
 
-  // [환자 이송 - 1차]
-  hospital1:       { x: 85,  y: 240 },
-  acceptor1_dr:    { x: 487, y: 250 }, // 의사
-  acceptor1_nurse: { x: 487, y: 240 }, // 간호사
-  acceptor1_emt:   { x: 487, y: 230 }, // 응급구조사
+  // [환자 이송 - 1차] pdfplumber: 1차 y=242, 2차 y=204
+  hospital1:       { x: 85,  y: 254 },
+  acceptor1_dr:    { x: 485, y: 263 }, // 의사
+  acceptor1_nurse: { x: 485, y: 253 }, // 간호사
+  acceptor1_emt:   { x: 485, y: 243 }, // 응급구조사
 };
 
 async function fillEmsFormPdf(data) {
@@ -2754,9 +2759,14 @@ async function fillEmsFormPdf(data) {
         console.warn(`drawText 실패 [${text}] @${coord.x},${coord.y}:`, e.message);
       }
     };
-    const check = (coord, size = 11) => {
+    // 체크 표시 — NanumGothic 에 ✓(U+2713) 글리프가 없을 수 있어 "V" 사용
+    const check = (coord, size = 9) => {
       if (!coord) return;
-      page.drawText("✓", { x: coord.x, y: coord.y, size, font: koFont, color: rgb(0, 0.35, 0) });
+      try {
+        page.drawText("V", { x: coord.x, y: coord.y, size, font: koFont, color: rgb(0, 0, 0) });
+      } catch (e) {
+        console.warn(`check 실패 @${coord.x},${coord.y}:`, e.message);
+      }
     };
 
     // ─────────────────────────────────────────────
