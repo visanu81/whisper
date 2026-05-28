@@ -478,10 +478,46 @@ function closeDemoMode() {
 
 // 데모 메뉴 토글
 function toggleDemoMenu() {
-  document.getElementById("demo-menu").classList.toggle("hidden");
+  const menu = document.getElementById("demo-menu");
+  menu.classList.toggle("hidden");
+  if (!menu.classList.contains("hidden")) {
+    positionDemoMenu();
+  }
 }
 function hideDemoMenu() {
   document.getElementById("demo-menu").classList.add("hidden");
+}
+
+// 데모 메뉴 화면 안 자동 정렬
+//   - 헤더가 한 줄일 때 데모 버튼은 우측 끝 → 메뉴는 left-auto right-0 (좌측으로 펼침)
+//   - 헤더 줄바꿈으로 데모 버튼이 좌측에 가면 → 메뉴 left-0 (우측으로 펼침)
+//   - 어느 쪽도 화면 안에 안 들어오면 강제 8px 안쪽으로 클램프
+function positionDemoMenu() {
+  const btn = document.getElementById("btn-demo");
+  const menu = document.getElementById("demo-menu");
+  if (!btn || !menu) return;
+  const vw = document.documentElement.clientWidth;
+  const btnRect = btn.getBoundingClientRect();
+  const menuW = menu.offsetWidth || 256;
+  const PAD = 8;
+
+  // 일단 right-0 시도 (메뉴 우측 = 버튼 우측)
+  menu.style.left = "auto";
+  menu.style.right = "0";
+  // 그 결과 메뉴 좌측이 화면 좌측 밖이면 left-0 로 전환
+  const expectedLeftIfRight = btnRect.right - menuW;
+  if (expectedLeftIfRight < PAD) {
+    // left-0 시도 (메뉴 좌측 = 버튼 좌측)
+    menu.style.left = "0";
+    menu.style.right = "auto";
+    // 그 결과 메뉴 우측이 화면 우측 밖이면 강제 클램프
+    const expectedRightIfLeft = btnRect.left + menuW;
+    if (expectedRightIfLeft > vw - PAD) {
+      // 부모(데모 버튼) 기준 left 를 음수로 줘서 메뉴를 화면 안으로 밀어 넣음
+      menu.style.left = `${PAD - btnRect.left}px`;
+      menu.style.right = "auto";
+    }
+  }
 }
 
 // =====================================================================
